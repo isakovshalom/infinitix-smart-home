@@ -1,0 +1,25 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "INFINITIX Smart Home",
+        "description": "הפעולה מוסיפה את הדאשבורד של INFINITIX ל-Home Assistant.\n\nלאחר הסיום פתחו את **INFINITIX** בתפריט הצד. אשף ההגדרות יתחיל אוטומטית ויבנה את הדאשבורד מתוך החדרים והישויות שלכם. אין צורך ב-YAML."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "INFINITIX Smart Home כבר מוגדר."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "אפשרויות INFINITIX",
+        "description": "פריסה, ערכת נושא וחדרים מוגדרים בתוך INFINITIX (מנהל בלבד ← הגדרות).",
+        "data": {
+          "show_in_sidebar": "הצג בתפריט הצד",
+          "sidebar_title": "כותרת בתפריט הצד"
+        }
+      }
+    }
+  }
+}

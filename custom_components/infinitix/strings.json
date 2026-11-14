@@ -1,0 +1,25 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "INFINITIX Smart Home",
+        "description": "This adds the INFINITIX dashboard to Home Assistant.\n\nAfter you finish, open **INFINITIX** in the sidebar. The setup wizard starts automatically and builds the dashboard from your areas and entities. No YAML needed."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "INFINITIX Smart Home is already set up."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "INFINITIX options",
+        "description": "Dashboard layout, theme and rooms are configured inside INFINITIX (admin only → Settings).",
+        "data": {
+          "show_in_sidebar": "Show in sidebar",
+          "sidebar_title": "Sidebar title"
+        }
+      }
+    }
+  }
+}

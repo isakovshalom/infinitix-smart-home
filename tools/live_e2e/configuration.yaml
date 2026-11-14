@@ -1,0 +1,51 @@
+homeassistant:
+  name: Test Home
+  time_zone: Asia/Jerusalem
+  language: he
+http:
+  server_port: 8124
+frontend:
+api:
+onboarding:
+input_boolean:
+  night_mode:
+    name: Night mode
+input_number:
+  volume:
+    name: Volume
+    min: 0
+    max: 100
+template:
+  - sensor:
+      - name: Living temp
+        unique_id: tmp_living
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state: "22.5"
+  - light:
+      - name: Living dimmer
+        unique_id: l_living
+        state: "{{ is_state('input_boolean.night_mode','on') }}"
+        level: "{{ 120 }}"
+        turn_on:
+          - action: input_boolean.turn_on
+            target: {entity_id: input_boolean.night_mode}
+        turn_off:
+          - action: input_boolean.turn_off
+            target: {entity_id: input_boolean.night_mode}
+        set_level:
+          - action: input_number.set_value
+            target: {entity_id: input_number.volume}
+            data: {value: "{{ brightness }}"}
+  - cover:
+      - name: Bedroom shutter
+        unique_id: c_bed
+        state: "closed"
+        open_cover: []
+        close_cover: []
+  - switch:
+      - name: Boiler
+        unique_id: sw_boiler
+        state: "{{ false }}"
+        turn_on: []
+        turn_off: []

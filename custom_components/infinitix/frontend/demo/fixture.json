@@ -1,0 +1,1412 @@
+{
+ "states": {
+  "light.living_main": {
+   "entity_id": "light.living_main",
+   "state": "on",
+   "attributes": {
+    "friendly_name": "תאורת סלון",
+    "supported_color_modes": [
+     "color_temp"
+    ],
+    "brightness": 180,
+    "color_temp_kelvin": 3200,
+    "min_color_temp_kelvin": 2200,
+    "max_color_temp_kelvin": 6500
+   }
+  },
+  "light.living_strip": {
+   "entity_id": "light.living_strip",
+   "state": "on",
+   "attributes": {
+    "friendly_name": "פס לד",
+    "supported_color_modes": [
+     "hs"
+    ],
+    "brightness": 120,
+    "hs_color": [
+     30,
+     80
+    ]
+   }
+  },
+  "cover.living_blind": {
+   "entity_id": "cover.living_blind",
+   "state": "open",
+   "attributes": {
+    "friendly_name": "תריס סלון",
+    "supported_features": 15,
+    "current_position": 70
+   }
+  },
+  "climate.living_ac": {
+   "entity_id": "climate.living_ac",
+   "state": "cool",
+   "attributes": {
+    "friendly_name": "מזגן סלון",
+    "supported_features": 9,
+    "hvac_modes": [
+     "off",
+     "cool",
+     "heat",
+     "auto"
+    ],
+    "fan_modes": [
+     "low",
+     "high"
+    ],
+    "fan_mode": "low",
+    "temperature": 23,
+    "current_temperature": 25,
+    "min_temp": 16,
+    "max_temp": 30,
+    "target_temp_step": 1
+   }
+  },
+  "media_player.living_tv": {
+   "entity_id": "media_player.living_tv",
+   "state": "playing",
+   "attributes": {
+    "friendly_name": "טלוויזיה",
+    "supported_features": 16821,
+    "volume_level": 0.3,
+    "media_title": "חדשות הערב"
+   }
+  },
+  "sensor.living_temp": {
+   "entity_id": "sensor.living_temp",
+   "state": "25.4",
+   "attributes": {
+    "friendly_name": "טמפרטורה בסלון",
+    "device_class": "temperature",
+    "unit_of_measurement": "°C"
+   }
+  },
+  "switch.living_outlet": {
+   "entity_id": "switch.living_outlet",
+   "state": "off",
+   "attributes": {
+    "friendly_name": "שקע טלוויזיה",
+    "device_class": "outlet"
+   }
+  },
+  "binary_sensor.living_motion": {
+   "entity_id": "binary_sensor.living_motion",
+   "state": "off",
+   "attributes": {
+    "friendly_name": "תנועה בסלון",
+    "device_class": "motion"
+   }
+  },
+  "light.kitchen_spots": {
+   "entity_id": "light.kitchen_spots",
+   "state": "off",
+   "attributes": {
+    "friendly_name": "ספוטים במטבח",
+    "supported_color_modes": [
+     "brightness"
+    ]
+   }
+  },
+  "switch.kitchen_coffee": {
+   "entity_id": "switch.kitchen_coffee",
+   "state": "off",
+   "attributes": {
+    "friendly_name": "מכונת קפה"
+   }
+  },
+  "switch.kitchen_lamp": {
+   "entity_id": "switch.kitchen_lamp",
+   "state": "on",
+   "attributes": {
+    "friendly_name": "מנורת שיש (מתג)"
+   }
+  },
+  "sensor.kitchen_humidity": {
+   "entity_id": "sensor.kitchen_humidity",
+   "state": "48",
+   "attributes": {
+    "friendly_name": "לחות במטבח",
+    "device_class": "humidity",
+    "unit_of_measurement": "%"
+   }
+  },
+  "light.bedroom_ceiling": {
+   "entity_id": "light.bedroom_ceiling",
+   "state": "off",
+   "attributes": {
+    "friendly_name": "תאורת חדר שינה",
+    "supported_color_modes": [
+     "onoff"
+    ]
+   }
+  },
+  "cover.bedroom_blind": {
+   "entity_id": "cover.bedroom_blind",
+   "state": "closed",
+   "attributes": {
+    "friendly_name": "תריס חדר שינה",
+    "supported_features": 3,
+    "current_position": 0
+   }
+  },
+  "fan.bedroom_fan": {
+   "entity_id": "fan.bedroom_fan",
+   "state": "on",
+   "attributes": {
+    "friendly_name": "מאוורר",
+    "supported_features": 51,
+    "percentage": 40,
+    "oscillating": false
+   }
+  },
+  "sensor.bedroom_temp": {
+   "entity_id": "sensor.bedroom_temp",
+   "state": "23.1",
+   "attributes": {
+    "friendly_name": "טמפרטורה בחדר שינה",
+    "device_class": "temperature",
+    "unit_of_measurement": "°C"
+   }
+  },
+  "lock.front_door": {
+   "entity_id": "lock.front_door",
+   "state": "locked",
+   "attributes": {
+    "friendly_name": "דלת כניסה",
+    "supported_features": 0
+   }
+  },
+  "alarm_control_panel.home": {
+   "entity_id": "alarm_control_panel.home",
+   "state": "disarmed",
+   "attributes": {
+    "friendly_name": "אזעקה",
+    "supported_features": 3,
+    "code_format": "number",
+    "code_arm_required": false
+   }
+  },
+  "camera.entrance": {
+   "entity_id": "camera.entrance",
+   "state": "idle",
+   "attributes": {
+    "friendly_name": "מצלמת כניסה",
+    "supported_features": 2
+   }
+  },
+  "binary_sensor.front_door_contact": {
+   "entity_id": "binary_sensor.front_door_contact",
+   "state": "off",
+   "attributes": {
+    "friendly_name": "דלת כניסה (מגנט)",
+    "device_class": "door"
+   }
+  },
+  "light.hallway_unavailable": {
+   "entity_id": "light.hallway_unavailable",
+   "state": "unavailable",
+   "attributes": {
+    "friendly_name": "תאורת מסדרון",
+    "supported_color_modes": [
+     "brightness"
+    ]
+   }
+  },
+  "scene.evening": {
+   "entity_id": "scene.evening",
+   "state": "unknown",
+   "attributes": {
+    "friendly_name": "ערב נעים"
+   }
+  },
+  "script.goodnight": {
+   "entity_id": "script.goodnight",
+   "state": "off",
+   "attributes": {
+    "friendly_name": "לילה טוב"
+   }
+  },
+  "switch.garden_pump": {
+   "entity_id": "switch.garden_pump",
+   "state": "off",
+   "attributes": {
+    "friendly_name": "משאבת גינה (ללא חדר)"
+   }
+  },
+  "sensor.garden_moisture": {
+   "entity_id": "sensor.garden_moisture",
+   "state": "31",
+   "attributes": {
+    "friendly_name": "לחות אדמה בגינה",
+    "unit_of_measurement": "%"
+   }
+  },
+  "sensor.router_rssi": {
+   "entity_id": "sensor.router_rssi",
+   "state": "-60",
+   "attributes": {
+    "friendly_name": "עוצמת אות",
+    "unit_of_measurement": "dBm"
+   }
+  },
+  "light.old_disabled": {
+   "entity_id": "light.old_disabled",
+   "state": "unavailable",
+   "attributes": {
+    "friendly_name": "תאורה ישנה"
+   }
+  },
+  "weather.home": {
+   "entity_id": "weather.home",
+   "state": "sunny",
+   "attributes": {
+    "friendly_name": "מזג אוויר",
+    "temperature": 27,
+    "temperature_unit": "°C"
+   }
+  }
+ },
+ "inventory": {
+  "areas": [
+   {
+    "id": "living",
+    "name": "סלון",
+    "icon": "mdi:sofa"
+   },
+   {
+    "id": "kitchen",
+    "name": "מטבח",
+    "icon": "mdi:silverware-fork-knife"
+   },
+   {
+    "id": "bedroom",
+    "name": "חדר שינה",
+    "icon": "mdi:bed"
+   },
+   {
+    "id": "entrance",
+    "name": "כניסה",
+    "icon": "mdi:door"
+   }
+  ],
+  "entities": [
+   {
+    "entity_id": "alarm_control_panel.home",
+    "name": "אזעקה",
+    "domain": "alarm_control_panel",
+    "device_class": null,
+    "device_id": "dev_entrance",
+    "device_name": "כניסה",
+    "integration": "demo",
+    "area_id": "entrance",
+    "area_source": "device",
+    "in_registry": true,
+    "icon": null,
+    "unit": null,
+    "state": "disarmed",
+    "available": true,
+    "disabled": false,
+    "is_temperature_sensor": false,
+    "is_weather": false,
+    "card": "alarm",
+    "confidence": "high",
+    "reason": "domain_alarm",
+    "capabilities": [
+     "disarm",
+     "arm_home",
+     "arm_away"
+    ],
+    "suggestion": null,
+    "default_hidden": false,
+    "hidden_reason": null
+   },
+   {
+    "entity_id": "binary_sensor.front_door_contact",
+    "name": "דלת כניסה (מגנט)",
+    "domain": "binary_sensor",
+    "device_class": "door",
+    "device_id": "dev_entrance",
+    "device_name": "כניסה",
+    "integration": "demo",
+    "area_id": "entrance",
+    "area_source": "device",
+    "in_registry": true,
+    "icon": null,
+    "unit": null,
+    "state": "off",
+    "available": true,
+    "disabled": false,
+    "is_temperature_sensor": false,
+    "is_weather": false,
+    "card": "binary_sensor",
+    "confidence": "high",
+    "reason": "domain_binary_sensor",
+    "capabilities": [],
+    "suggestion": null,
+    "default_hidden": false,
+    "hidden_reason": null
+   },
+   {
+    "entity_id": "binary_sensor.living_motion",
+    "name": "תנועה בסלון",
+    "domain": "binary_sensor",
+    "device_class": "motion",
+    "device_id": "dev_living",
+    "device_name": "סלון",
+    "integration": "demo",
+    "area_id": "living",
+    "area_source": "device",
+    "in_registry": true,
+    "icon": null,
+    "unit": null,
+    "state": "off",
+    "available": true,
+    "disabled": false,
+    "is_temperature_sensor": false,
+    "is_weather": false,
+    "card": "binary_sensor",
+    "confidence": "high",
+    "reason": "domain_binary_sensor",
+    "capabilities": [],
+    "suggestion": null,
+    "default_hidden": false,
+    "hidden_reason": null
+   },
+   {
+    "entity_id": "camera.entrance",
+    "name": "מצלמת כניסה",
+    "domain": "camera",
+    "device_class": null,
+    "device_id": "dev_entrance",
+    "device_name": "כניסה",
+    "integration": "demo",
+    "area_id": "entrance",
+    "area_source": "device",
+    "in_registry": true,
+    "icon": null,
+    "unit": null,
+    "state": "idle",
+    "available": true,
+    "disabled": false,
+    "is_temperature_sensor": false,
+    "is_weather": false,
+    "card": "camera",
+    "confidence": "high",
+    "reason": "domain_camera",
+    "capabilities": [
+     "snapshot",
+     "stream"
+    ],
+    "suggestion": null,
+    "default_hidden": false,
+    "hidden_reason": null
+   },
+   {
+    "entity_id": "climate.living_ac",
+    "name": "מזגן סלון",
+    "domain": "climate",
+    "device_class": null,
+    "device_id": "dev_living",
+    "device_name": "סלון",
+    "integration": "demo",
+    "area_id": "living",
+    "area_source": "device",
+    "in_registry": true,
+    "icon": null,
+    "unit": null,
+    "state": "cool",
+    "available": true,
+    "disabled": false,
+    "is_temperature_sensor": false,
+    "is_weather": false,
+    "card": "climate",
+    "confidence": "high",
+    "reason": "domain_climate",
+    "capabilities": [
+     "target_temperature",
+     "fan_mode",
+     "hvac_mode"
+    ],
+    "suggestion": null,
+    "default_hidden": false,
+    "hidden_reason": null
+   },
+   {
+    "entity_id": "cover.bedroom_blind",
+    "name": "תריס חדר שינה",
+    "domain": "cover",
+    "device_class": null,
+    "device_id": "dev_bedroom",
+    "device_name": "חדר שינה",
+    "integration": "demo",
+    "area_id": "bedroom",
+    "area_source": "device",
+    "in_registry": true,
+    "icon": null,
+    "unit": null,
+    "state": "closed",
+    "available": true,
+    "disabled": false,
+    "is_temperature_sensor": false,
+    "is_weather": false,
+    "card": "cover",
+    "confidence": "high",
+    "reason": "domain_cover",
+    "capabilities": [
+     "open",
+     "close"
+    ],
+    "suggestion": null,
+    "default_hidden": false,
+    "hidden_reason": null
+   },
+   {
+    "entity_id": "cover.living_blind",
+    "name": "תריס סלון",
+    "domain": "cover",
+    "device_class": null,
+    "device_id": "dev_living",
+    "device_name": "סלון",
+    "integration": "demo",
+    "area_id": "living",
+    "area_source": "device",
+    "in_registry": true,
+    "icon": null,
+    "unit": null,
+    "state": "open",
+    "available": true,
+    "disabled": false,
+    "is_temperature_sensor": false,
+    "is_weather": false,
+    "card": "cover",
+    "confidence": "high",
+    "reason": "domain_cover",
+    "capabilities": [
+     "open",
+     "close",
+     "stop",
+     "position"
+    ],
+    "suggestion": null,
+    "default_hidden": false,
+    "hidden_reason": null
+   },
+   {
+    "entity_id": "fan.bedroom_fan",
+    "name": "מאוורר",
+    "domain": "fan",
+    "device_class": null,
+    "device_id": "dev_bedroom",
+    "device_name": "חדר שינה",
+    "integration": "demo",
+    "area_id": "bedroom",
+    "area_source": "device",
+    "in_registry": true,
+    "icon": null,
+    "unit": null,
+    "state": "on",
+    "available": true,
+    "disabled": false,
+    "is_temperature_sensor": false,
+    "is_weather": false,
+    "card": "fan",
+    "confidence": "high",
+    "reason": "domain_fan",
+    "capabilities": [
+     "on_off",
+     "speed",
+     "oscillate"
+    ],
+    "suggestion": null,
+    "default_hidden": false,
+    "hidden_reason": null
+   },
+   {
+    "entity_id": "light.bedroom_ceiling",
+    "name": "תאורת חדר שינה",
+    "domain": "light",
+    "device_class": null,
+    "device_id": "dev_bedroom",
+    "device_name": "חדר שינה",
+    "integration": "demo",
+    "area_id": "bedroom",
+    "area_source": "device",
+    "in_registry": true,
+    "icon": null,
+    "unit": null,
+    "state": "off",
+    "available": true,
+    "disabled": false,
+    "is_temperature_sensor": false,
+    "is_weather": false,
+    "card": "light",
+    "confidence": "high",
+    "reason": "domain_light",
+    "capabilities": [
+     "on_off"
+    ],
+    "suggestion": null,
+    "default_hidden": false,
+    "hidden_reason": null
+   },
+   {
+    "entity_id": "light.hallway_unavailable",
+    "name": "תאורת מסדרון",
+    "domain": "light",
+    "device_class": null,
+    "device_id": "dev_entrance",
+    "device_name": "כניסה",
+    "integration": "demo",
+    "area_id": "entrance",
+    "area_source": "device",
+    "in_registry": true,
+    "icon": null,
+    "unit": null,
+    "state": "unavailable",
+    "available": false,
+    "disabled": false,
+    "is_temperature_sensor": false,
+    "is_weather": false,
+    "card": "light",
+    "confidence": "high",
+    "reason": "domain_light",
+    "capabilities": [
+     "on_off",
+     "brightness"
+    ],
+    "suggestion": null,
+    "default_hidden": false,
+    "hidden_reason": null
+   },
+   {
+    "entity_id": "light.kitchen_spots",
+    "name": "ספוטים במטבח",
+    "domain": "light",
+    "device_class": null,
+    "device_id": "dev_kitchen",
+    "device_name": "מטבח",
+    "integration": "demo",
+    "area_id": "kitchen",
+    "area_source": "device",
+    "in_registry": true,
+    "icon": null,
+    "unit": null,
+    "state": "off",
+    "available": true,
+    "disabled": false,
+    "is_temperature_sensor": false,
+    "is_weather": false,
+    "card": "light",
+    "confidence": "high",
+    "reason": "domain_light",
+    "capabilities": [
+     "on_off",
+     "brightness"
+    ],
+    "suggestion": null,
+    "default_hidden": false,
+    "hidden_reason": null
+   },
+   {
+    "entity_id": "light.living_main",
+    "name": "תאורת סלון",
+    "domain": "light",
+    "device_class": null,
+    "device_id": "dev_living",
+    "device_name": "סלון",
+    "integration": "demo",
+    "area_id": "living",
+    "area_source": "device",
+    "in_registry": true,
+    "icon": null,
+    "unit": null,
+    "state": "on",
+    "available": true,
+    "disabled": false,
+    "is_temperature_sensor": false,
+    "is_weather": false,
+    "card": "light",
+    "confidence": "high",
+    "reason": "domain_light",
+    "capabilities": [
+     "on_off",
+     "brightness",
+     "color_temp"
+    ],
+    "suggestion": null,
+    "default_hidden": false,
+    "hidden_reason": null
+   },
+   {
+    "entity_id": "light.living_strip",
+    "name": "פס לד",
+    "domain": "light",
+    "device_class": null,
+    "device_id": "dev_living",
+    "device_name": "סלון",
+    "integration": "demo",
+    "area_id": "living",
+    "area_source": "device",
+    "in_registry": true,
+    "icon": null,
+    "unit": null,
+    "state": "on",
+    "available": true,
+    "disabled": false,
+    "is_temperature_sensor": false,
+    "is_weather": false,
+    "card": "light",
+    "confidence": "high",
+    "reason": "domain_light",
+    "capabilities": [
+     "on_off",
+     "brightness",
+     "color"
+    ],
+    "suggestion": null,
+    "default_hidden": false,
+    "hidden_reason": null
+   },
+   {
+    "entity_id": "light.old_disabled",
+    "name": "תאורה ישנה",
+    "domain": "light",
+    "device_class": null,
+    "device_id": "dev_living",
+    "device_name": "סלון",
+    "integration": "demo",
+    "area_id": "living",
+    "area_source": "device",
+    "in_registry": true,
+    "icon": null,
+    "unit": null,
+    "state": "unavailable",
+    "available": false,
+    "disabled": true,
+    "is_temperature_sensor": false,
+    "is_weather": false,
+    "card": null,
+    "confidence": "high",
+    "reason": "disabled_in_ha",
+    "capabilities": [],
+    "suggestion": null,
+    "default_hidden": true,
+    "hidden_reason": "disabled"
+   },
+   {
+    "entity_id": "lock.front_door",
+    "name": "דלת כניסה",
+    "domain": "lock",
+    "device_class": null,
+    "device_id": "dev_entrance",
+    "device_name": "כניסה",
+    "integration": "demo",
+    "area_id": "entrance",
+    "area_source": "device",
+    "in_registry": true,
+    "icon": null,
+    "unit": null,
+    "state": "locked",
+    "available": true,
+    "disabled": false,
+    "is_temperature_sensor": false,
+    "is_weather": false,
+    "card": "lock",
+    "confidence": "high",
+    "reason": "domain_lock",
+    "capabilities": [
+     "lock",
+     "unlock"
+    ],
+    "suggestion": null,
+    "default_hidden": false,
+    "hidden_reason": null
+   },
+   {
+    "entity_id": "media_player.living_tv",
+    "name": "טלוויזיה",
+    "domain": "media_player",
+    "device_class": null,
+    "device_id": "dev_living",
+    "device_name": "סלון",
+    "integration": "demo",
+    "area_id": "living",
+    "area_source": "device",
+    "in_registry": true,
+    "icon": null,
+    "unit": null,
+    "state": "playing",
+    "available": true,
+    "disabled": false,
+    "is_temperature_sensor": false,
+    "is_weather": false,
+    "card": "media_player",
+    "confidence": "high",
+    "reason": "domain_media_player",
+    "capabilities": [
+     "turn_on",
+     "turn_off",
+     "play",
+     "pause",
+     "previous",
+     "next",
+     "volume_set"
+    ],
+    "suggestion": null,
+    "default_hidden": false,
+    "hidden_reason": null
+   },
+   {
+    "entity_id": "scene.evening",
+    "name": "ערב נעים",
+    "domain": "scene",
+    "device_class": null,
+    "device_id": null,
+    "device_name": null,
+    "integration": "demo",
+    "area_id": null,
+    "area_source": null,
+    "in_registry": true,
+    "icon": null,
+    "unit": null,
+    "state": "unknown",
+    "available": true,
+    "disabled": false,
+    "is_temperature_sensor": false,
+    "is_weather": false,
+    "card": "scene",
+    "confidence": "high",
+    "reason": "domain_scene",
+    "capabilities": [
+     "activate"
+    ],
+    "suggestion": null,
+    "default_hidden": false,
+    "hidden_reason": null
+   },
+   {
+    "entity_id": "script.goodnight",
+    "name": "לילה טוב",
+    "domain": "script",
+    "device_class": null,
+    "device_id": null,
+    "device_name": null,
+    "integration": "demo",
+    "area_id": null,
+    "area_source": null,
+    "in_registry": true,
+    "icon": null,
+    "unit": null,
+    "state": "off",
+    "available": true,
+    "disabled": false,
+    "is_temperature_sensor": false,
+    "is_weather": false,
+    "card": "script",
+    "confidence": "high",
+    "reason": "domain_script",
+    "capabilities": [
+     "run"
+    ],
+    "suggestion": null,
+    "default_hidden": false,
+    "hidden_reason": null
+   },
+   {
+    "entity_id": "sensor.bedroom_temp",
+    "name": "טמפרטורה בחדר שינה",
+    "domain": "sensor",
+    "device_class": "temperature",
+    "device_id": "dev_bedroom",
+    "device_name": "חדר שינה",
+    "integration": "demo",
+    "area_id": "bedroom",
+    "area_source": "device",
+    "in_registry": true,
+    "icon": null,
+    "unit": "°C",
+    "state": "23.1",
+    "available": true,
+    "disabled": false,
+    "is_temperature_sensor": true,
+    "is_weather": false,
+    "card": "sensor",
+    "confidence": "high",
+    "reason": "domain_sensor",
+    "capabilities": [],
+    "suggestion": null,
+    "default_hidden": false,
+    "hidden_reason": null
+   },
+   {
+    "entity_id": "sensor.garden_moisture",
+    "name": "לחות אדמה בגינה",
+    "domain": "sensor",
+    "device_class": null,
+    "device_id": null,
+    "device_name": null,
+    "integration": "demo",
+    "area_id": null,
+    "area_source": null,
+    "in_registry": true,
+    "icon": null,
+    "unit": "%",
+    "state": "31",
+    "available": true,
+    "disabled": false,
+    "is_temperature_sensor": false,
+    "is_weather": false,
+    "card": "sensor",
+    "confidence": "high",
+    "reason": "domain_sensor",
+    "capabilities": [],
+    "suggestion": null,
+    "default_hidden": false,
+    "hidden_reason": null
+   },
+   {
+    "entity_id": "sensor.kitchen_humidity",
+    "name": "לחות במטבח",
+    "domain": "sensor",
+    "device_class": "humidity",
+    "device_id": "dev_kitchen",
+    "device_name": "מטבח",
+    "integration": "demo",
+    "area_id": "kitchen",
+    "area_source": "device",
+    "in_registry": true,
+    "icon": null,
+    "unit": "%",
+    "state": "48",
+    "available": true,
+    "disabled": false,
+    "is_temperature_sensor": false,
+    "is_weather": false,
+    "card": "sensor",
+    "confidence": "high",
+    "reason": "domain_sensor",
+    "capabilities": [],
+    "suggestion": null,
+    "default_hidden": false,
+    "hidden_reason": null
+   },
+   {
+    "entity_id": "sensor.living_temp",
+    "name": "טמפרטורה בסלון",
+    "domain": "sensor",
+    "device_class": "temperature",
+    "device_id": "dev_living",
+    "device_name": "סלון",
+    "integration": "demo",
+    "area_id": "living",
+    "area_source": "device",
+    "in_registry": true,
+    "icon": null,
+    "unit": "°C",
+    "state": "25.4",
+    "available": true,
+    "disabled": false,
+    "is_temperature_sensor": true,
+    "is_weather": false,
+    "card": "sensor",
+    "confidence": "high",
+    "reason": "domain_sensor",
+    "capabilities": [],
+    "suggestion": null,
+    "default_hidden": false,
+    "hidden_reason": null
+   },
+   {
+    "entity_id": "sensor.router_rssi",
+    "name": "עוצמת אות",
+    "domain": "sensor",
+    "device_class": null,
+    "device_id": "dev_living",
+    "device_name": "סלון",
+    "integration": "demo",
+    "area_id": "living",
+    "area_source": "device",
+    "in_registry": true,
+    "icon": null,
+    "unit": "dBm",
+    "state": "-60",
+    "available": true,
+    "disabled": false,
+    "is_temperature_sensor": false,
+    "is_weather": false,
+    "card": "sensor",
+    "confidence": "high",
+    "reason": "domain_sensor",
+    "capabilities": [],
+    "suggestion": null,
+    "default_hidden": true,
+    "hidden_reason": "diagnostic"
+   },
+   {
+    "entity_id": "switch.garden_pump",
+    "name": "משאבת גינה (ללא חדר)",
+    "domain": "switch",
+    "device_class": null,
+    "device_id": null,
+    "device_name": null,
+    "integration": null,
+    "area_id": null,
+    "area_source": null,
+    "in_registry": false,
+    "icon": null,
+    "unit": null,
+    "state": "off",
+    "available": true,
+    "disabled": false,
+    "is_temperature_sensor": false,
+    "is_weather": false,
+    "card": "switch",
+    "confidence": "medium",
+    "reason": "switch_unclassified",
+    "capabilities": [
+     "on_off"
+    ],
+    "suggestion": null,
+    "default_hidden": false,
+    "hidden_reason": null
+   },
+   {
+    "entity_id": "switch.kitchen_coffee",
+    "name": "מכונת קפה",
+    "domain": "switch",
+    "device_class": null,
+    "device_id": "dev_kitchen",
+    "device_name": "מטבח",
+    "integration": "demo",
+    "area_id": "kitchen",
+    "area_source": "device",
+    "in_registry": true,
+    "icon": null,
+    "unit": null,
+    "state": "off",
+    "available": true,
+    "disabled": false,
+    "is_temperature_sensor": false,
+    "is_weather": false,
+    "card": "switch",
+    "confidence": "medium",
+    "reason": "switch_unclassified",
+    "capabilities": [
+     "on_off"
+    ],
+    "suggestion": null,
+    "default_hidden": false,
+    "hidden_reason": null
+   },
+   {
+    "entity_id": "switch.kitchen_lamp",
+    "name": "מנורת שיש (מתג)",
+    "domain": "switch",
+    "device_class": null,
+    "device_id": "dev_kitchen",
+    "device_name": "מטבח",
+    "integration": "demo",
+    "area_id": "kitchen",
+    "area_source": "device",
+    "in_registry": true,
+    "icon": null,
+    "unit": null,
+    "state": "on",
+    "available": true,
+    "disabled": false,
+    "is_temperature_sensor": false,
+    "is_weather": false,
+    "card": "switch",
+    "confidence": "low",
+    "reason": "switch_name_hints_light",
+    "capabilities": [
+     "on_off"
+    ],
+    "suggestion": "light",
+    "default_hidden": false,
+    "hidden_reason": null
+   },
+   {
+    "entity_id": "switch.living_outlet",
+    "name": "שקע טלוויזיה",
+    "domain": "switch",
+    "device_class": "outlet",
+    "device_id": "dev_living",
+    "device_name": "סלון",
+    "integration": "demo",
+    "area_id": "living",
+    "area_source": "device",
+    "in_registry": true,
+    "icon": null,
+    "unit": null,
+    "state": "off",
+    "available": true,
+    "disabled": false,
+    "is_temperature_sensor": false,
+    "is_weather": false,
+    "card": "outlet",
+    "confidence": "high",
+    "reason": "switch_outlet",
+    "capabilities": [
+     "on_off"
+    ],
+    "suggestion": null,
+    "default_hidden": false,
+    "hidden_reason": null
+   },
+   {
+    "entity_id": "weather.home",
+    "name": "מזג אוויר",
+    "domain": "weather",
+    "device_class": null,
+    "device_id": null,
+    "device_name": null,
+    "integration": "demo",
+    "area_id": null,
+    "area_source": null,
+    "in_registry": true,
+    "icon": null,
+    "unit": null,
+    "state": "sunny",
+    "available": true,
+    "disabled": false,
+    "is_temperature_sensor": false,
+    "is_weather": true,
+    "card": "generic",
+    "confidence": "high",
+    "reason": "weather_widget",
+    "capabilities": [],
+    "suggestion": null,
+    "default_hidden": true,
+    "hidden_reason": "weather_widget"
+   }
+  ],
+  "summary": {
+   "areas": 4,
+   "devices": 4,
+   "entities": 28,
+   "unassigned": 5,
+   "hidden_by_default": 3,
+   "disabled": 1,
+   "without_registry": 1,
+   "uncertain": 1,
+   "by_card": {
+    "alarm": 1,
+    "binary_sensor": 2,
+    "camera": 1,
+    "climate": 1,
+    "cover": 2,
+    "fan": 1,
+    "light": 5,
+    "lock": 1,
+    "media_player": 1,
+    "scene": 1,
+    "script": 1,
+    "sensor": 4,
+    "switch": 3,
+    "outlet": 1
+   }
+  }
+ },
+ "proposal": {
+  "rooms": [
+   {
+    "id": "room_bedroom",
+    "area_id": "bedroom",
+    "name": "חדר שינה",
+    "icon": "mdi:bed",
+    "order": 0,
+    "visible": true
+   },
+   {
+    "id": "room_entrance",
+    "area_id": "entrance",
+    "name": "כניסה",
+    "icon": "mdi:door",
+    "order": 1,
+    "visible": true
+   },
+   {
+    "id": "room_kitchen",
+    "area_id": "kitchen",
+    "name": "מטבח",
+    "icon": "mdi:silverware-fork-knife",
+    "order": 2,
+    "visible": true
+   },
+   {
+    "id": "room_living",
+    "area_id": "living",
+    "name": "סלון",
+    "icon": "mdi:sofa",
+    "order": 3,
+    "visible": true
+   },
+   {
+    "id": "__unassigned__",
+    "area_id": null,
+    "name": null,
+    "icon": "mdi:help-circle-outline",
+    "order": 4,
+    "visible": true
+   }
+  ],
+  "entities": {
+   "alarm_control_panel.home": {
+    "card": "alarm",
+    "name": null,
+    "icon": null,
+    "room": "room_entrance",
+    "hidden": false,
+    "favorite": false,
+    "size": "m",
+    "order": 0
+   },
+   "binary_sensor.front_door_contact": {
+    "card": "binary_sensor",
+    "name": null,
+    "icon": null,
+    "room": "room_entrance",
+    "hidden": false,
+    "favorite": false,
+    "size": "m",
+    "order": 1
+   },
+   "binary_sensor.living_motion": {
+    "card": "binary_sensor",
+    "name": null,
+    "icon": null,
+    "room": "room_living",
+    "hidden": false,
+    "favorite": false,
+    "size": "m",
+    "order": 0
+   },
+   "camera.entrance": {
+    "card": "camera",
+    "name": null,
+    "icon": null,
+    "room": "room_entrance",
+    "hidden": false,
+    "favorite": false,
+    "size": "m",
+    "order": 2
+   },
+   "climate.living_ac": {
+    "card": "climate",
+    "name": null,
+    "icon": null,
+    "room": "room_living",
+    "hidden": false,
+    "favorite": false,
+    "size": "m",
+    "order": 1
+   },
+   "cover.bedroom_blind": {
+    "card": "cover",
+    "name": null,
+    "icon": null,
+    "room": "room_bedroom",
+    "hidden": false,
+    "favorite": false,
+    "size": "m",
+    "order": 0
+   },
+   "cover.living_blind": {
+    "card": "cover",
+    "name": null,
+    "icon": null,
+    "room": "room_living",
+    "hidden": false,
+    "favorite": false,
+    "size": "m",
+    "order": 2
+   },
+   "fan.bedroom_fan": {
+    "card": "fan",
+    "name": null,
+    "icon": null,
+    "room": "room_bedroom",
+    "hidden": false,
+    "favorite": false,
+    "size": "m",
+    "order": 1
+   },
+   "light.bedroom_ceiling": {
+    "card": "light",
+    "name": null,
+    "icon": null,
+    "room": "room_bedroom",
+    "hidden": false,
+    "favorite": false,
+    "size": "m",
+    "order": 2
+   },
+   "light.hallway_unavailable": {
+    "card": "light",
+    "name": null,
+    "icon": null,
+    "room": "room_entrance",
+    "hidden": false,
+    "favorite": false,
+    "size": "m",
+    "order": 3
+   },
+   "light.kitchen_spots": {
+    "card": "light",
+    "name": null,
+    "icon": null,
+    "room": "room_kitchen",
+    "hidden": false,
+    "favorite": false,
+    "size": "m",
+    "order": 0
+   },
+   "light.living_main": {
+    "card": "light",
+    "name": null,
+    "icon": null,
+    "room": "room_living",
+    "hidden": false,
+    "favorite": false,
+    "size": "m",
+    "order": 3
+   },
+   "light.living_strip": {
+    "card": "light",
+    "name": null,
+    "icon": null,
+    "room": "room_living",
+    "hidden": false,
+    "favorite": false,
+    "size": "m",
+    "order": 4
+   },
+   "lock.front_door": {
+    "card": "lock",
+    "name": null,
+    "icon": null,
+    "room": "room_entrance",
+    "hidden": false,
+    "favorite": false,
+    "size": "m",
+    "order": 4
+   },
+   "media_player.living_tv": {
+    "card": "media_player",
+    "name": null,
+    "icon": null,
+    "room": "room_living",
+    "hidden": false,
+    "favorite": false,
+    "size": "m",
+    "order": 5
+   },
+   "scene.evening": {
+    "card": "scene",
+    "name": null,
+    "icon": null,
+    "room": "__unassigned__",
+    "hidden": false,
+    "favorite": false,
+    "size": "m",
+    "order": 0
+   },
+   "script.goodnight": {
+    "card": "script",
+    "name": null,
+    "icon": null,
+    "room": "__unassigned__",
+    "hidden": false,
+    "favorite": false,
+    "size": "m",
+    "order": 1
+   },
+   "sensor.bedroom_temp": {
+    "card": "sensor",
+    "name": null,
+    "icon": null,
+    "room": "room_bedroom",
+    "hidden": false,
+    "favorite": false,
+    "size": "m",
+    "order": 3
+   },
+   "sensor.garden_moisture": {
+    "card": "sensor",
+    "name": null,
+    "icon": null,
+    "room": "__unassigned__",
+    "hidden": false,
+    "favorite": false,
+    "size": "m",
+    "order": 2
+   },
+   "sensor.kitchen_humidity": {
+    "card": "sensor",
+    "name": null,
+    "icon": null,
+    "room": "room_kitchen",
+    "hidden": false,
+    "favorite": false,
+    "size": "m",
+    "order": 1
+   },
+   "sensor.living_temp": {
+    "card": "sensor",
+    "name": null,
+    "icon": null,
+    "room": "room_living",
+    "hidden": false,
+    "favorite": false,
+    "size": "m",
+    "order": 6
+   },
+   "switch.garden_pump": {
+    "card": "switch",
+    "name": null,
+    "icon": null,
+    "room": "__unassigned__",
+    "hidden": false,
+    "favorite": false,
+    "size": "m",
+    "order": 3
+   },
+   "switch.kitchen_coffee": {
+    "card": "switch",
+    "name": null,
+    "icon": null,
+    "room": "room_kitchen",
+    "hidden": false,
+    "favorite": false,
+    "size": "m",
+    "order": 2
+   },
+   "switch.kitchen_lamp": {
+    "card": "switch",
+    "name": null,
+    "icon": null,
+    "room": "room_kitchen",
+    "hidden": false,
+    "favorite": false,
+    "size": "m",
+    "order": 3
+   },
+   "switch.living_outlet": {
+    "card": "outlet",
+    "name": null,
+    "icon": null,
+    "room": "room_living",
+    "hidden": false,
+    "favorite": false,
+    "size": "m",
+    "order": 7
+   }
+  },
+  "room_temp_sensor": {
+   "room_bedroom": "sensor.bedroom_temp",
+   "room_living": "sensor.living_temp"
+  },
+  "weather_entity": "weather.home"
+ }
+}
