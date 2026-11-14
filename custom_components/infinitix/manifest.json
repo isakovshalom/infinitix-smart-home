@@ -3,7 +3,7 @@
   "name": "INFINITIX Smart Home",
   "version": "0.2.0",
   "documentation": "https://github.com/isakovshalom/infinitix-smart-home",
-  "issue_tracker": "https://github.com/isakovshslaom/infinitix-smart-home/issues",
+  "issue_tracker": "https://github.com/isakovshalom/infinitix-smart-home/issues",
   "codeowners": [],
   "config_flow": true,
   "dependencies": ["http", "frontend", "panel_custom", "websocket_api"],
