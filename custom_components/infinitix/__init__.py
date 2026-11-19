@@ -84,10 +84,13 @@ def _async_start_scenarios(hass: HomeAssistant, entry: ConfigEntry, manager: Con
     entry.async_on_unload(runner.async_stop)
 
     if hass.state is CoreState.running:
+        # Integration (re)loaded while HA runs: arm only.  Catch-up/restore belong to a
+        # real HA start, so a reload never undoes something a person just changed by hand.
         runner.async_reload()
     else:
         async def _started(_event: Event) -> None:
             runner.async_reload()
+            await runner.async_recover()
 
         entry.async_on_unload(hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, _started))
 

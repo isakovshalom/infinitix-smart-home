@@ -6,9 +6,13 @@
 import { CSS } from "./styles.js";
 import { makeT, LANGUAGES, RTL_LANGS } from "./i18n.js";
 import { esc, clamp, clone, formatClock, formatDate, greetingKey, domainOf, renumber } from "./util.js";
-import { cardHTML } from "./cards.js";
+import { cardHTML, icon, translateState } from "./cards.js";
+import { dashboardHTML, categoryHTML, sideSystemsHTML, systemStatus, systemItems } from "./systems.js";
 import { homeHTML, roomHTML, roomTempText, weatherHTML } from "./dashboard.js";
-import { UNASSIGNED, entitiesOfRoom, visibleRooms, roomName, GROUP_OF_CARD } from "./logic.js";
+import { UNASSIGNED, entitiesOfRoom, visibleRooms, visibleEntities, roomName, GROUP_OF_CARD } from "./logic.js";
+
+const LOGO = new URL("../brand/infinitix-logo.png", import.meta.url).href;
+const LOGO_DARK = new URL("../brand/infinitix-logo-dark.png", import.meta.url).href;
 import { CARD_TYPES_UI, ROOM_ICONS } from "./constants.js";
 import { startWizard, renderWizard, wizardAct, wizardField, wizardWorkChanged } from "./wizard.js";
 import { renderScenariosPage, scenariosAct, resetScenarios } from "./scenarios.js";
@@ -16,6 +20,10 @@ import { renderPairingPage, pairingAct } from "./pairing.js";
 import { renderMediaPage, mediaAct } from "./media.js";
 import { renderShoppingPage, shoppingAct, openShopping } from "./shopping.js";
 import { renderCamerasPage, camerasAct, cameraField, resetCameras } from "./cameras.js";
+import { resolveLayout, readDeviceLayout, writeDeviceLayout, reorder, applyOrder } from "./layout.js";
+import { saverEnabled, showSaver, hideSaver, renderSaver, openForecast } from "./saver.js";
+import { renderPageView, pagesAct, visiblePages } from "./pages.js";
+import { renderStatusPage, hebrewDate } from "./scenarios.js";
 import { renderSettings, renderManage, settingsAct, settingsField, openSettings, openManage, refreshSuggestions } from "./settings.js";
 
 export class InfinitixPanel extends HTMLElement {
@@ -35,7 +43,19 @@ export class InfinitixPanel extends HTMLElement {
     this._overlay = document.createElement("div");
     this._toastEl = document.createElement("div");
     this._toastEl.setAttribute("aria-live", "polite");
-    this.shadowRoot.append(style, this._app, this._overlay, this._toastEl);
+    this._saverEl = document.createElement("div");
+    this.shadowRoot.append(style, this._app, this._overlay, this._toastEl, this._saverEl);
+    this._lastActive = Date.now();
+    const wake = () => { this._lastActive = Date.now(); };
+    for (const ev of ["pointerdown", "keydown", "wheel", "touchstart"]) this.addEventListener(ev, wake, { passive: true, capture: true });
+    // The tap that wakes the screen only dismisses the saver; it never reaches a card.
+    this._saverEl.addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); hideSaver(this); });
+    this._saverEl.addEventListener("keydown", (e) => { e.preventDefault(); hideSaver(this); });
+    // Edit mode: touch/mouse drag by the card handle (buttons/keyboard remain the accessible way).
+    this._app.addEventListener("pointerdown", (e) => this._dndStart(e));
+    this._app.addEventListener("pointermove", (e) => this._dndMove(e));
+    this._app.addEventListener("pointerup", (e) => this._dndEnd(e));
+    this._app.addEventListener("pointercancel", () => this._dndCancel());
     this._app.addEventListener("click", (e) => this._onClick(e));
     // Stage layout: swipe between rooms (direction follows the reading direction).
     this._app.addEventListener("touchstart", (e) => { this._tx = e.touches[0].clientX; this._ty = e.touches[0].clientY; }, { passive: true });
@@ -71,10 +91,11 @@ export class InfinitixPanel extends HTMLElement {
   connectedCallback() {
     this._langAttrs(); // attributes must not be set in the constructor (custom element rules)
     this._clock = setInterval(() => this._tick(), 20000);
+    this._lastActive = Date.now();
     this._camTimer = setInterval(() => this._refreshCameras(), 10000);
   }
   disconnectedCallback() {
-    clearInterval(this._clock); clearInterval(this._camTimer);
+    clearInterval(this._clock); clearInterval(this._camTimer); hideSaver(this);
     try { this._unsubRegistry?.(); } catch { /* ignore */ }
   }
 
@@ -115,7 +136,7 @@ export class InfinitixPanel extends HTMLElement {
   }
 
   openModal(m) { this._modal = m; this._renderModal(); this._overlay.querySelector("input,select,.btn")?.focus(); }
-  closeModal() { this._modal = null; this._renderModal(); }
+  closeModal() { this._modalCleanup?.(); this._modalCleanup = null; this._modal = null; this._renderModal(); }
   _renderModal() {
     const m = this._modal;
     if (!m) { this._overlay.innerHTML = ""; return; }
@@ -126,7 +147,7 @@ export class InfinitixPanel extends HTMLElement {
     const b = e.target.closest("[data-ma]");
     if (!b || !this._modal) return;
     const form = {};
-    this._overlay.querySelectorAll("[data-mf]").forEach((x) => { form[x.dataset.mf] = x.type === "checkbox" ? x.checked : x.value; });
+    this._overlay.querySelectorAll("[data-mf]").forEach((x) => { form[x.dataset.mf] = x.type === "checkbox" || x.type === "radio" ? x.checked : x.value; });
     const m = this._modal;
     const keep = await m.onAction?.(b.dataset.ma, form);
     if (keep !== false && this._modal === m) this.closeModal();
@@ -148,7 +169,8 @@ export class InfinitixPanel extends HTMLElement {
     this.render();
     try {
       const r = await this.callWS({ type: "infinitix/get_config" });
-      this._cfg = r.config; this._isAdmin = r.is_admin; this._options = r.options;
+      this._cfg = r.config; this._isAdmin = r.is_admin; this._options = r.options; this._features = r.features;
+      this._devLayout = readDeviceLayout(globalThis.localStorage, this._hass.user?.id || "");
       this.setLang(this._cfg.home.language);
       await this._loadInventory();
       this._loading = false;
@@ -199,7 +221,7 @@ export class InfinitixPanel extends HTMLElement {
     const key = `${this._view.name}:${this._view.room || ""}:${this._wiz?.step ?? ""}`;
     this.applyTheme();
     let html;
-    if (this._loading) html = `<div class="content"><div class="page muted">…</div></div>`;
+    if (this._loading) html = `<div class="splash" role="status" aria-live="polite"><span class="logo-wrap"><img class="logo logo-light" src="${LOGO}" alt="INFINITIX" width="220" height="40"><img class="logo logo-dark" src="${LOGO_DARK}" alt="INFINITIX" width="220" height="40"></span><span class="splash-bar" aria-hidden="true"></span><span class="muted small">${esc(this.t("loading"))}</span></div>`;
     else if (this._error) html = `<div class="content"><div class="page"><div class="panel"><b>${esc(this.t("load_failed"))}</b><p class="note">${esc(this._error)}</p></div></div></div>`;
     else if (!this._cfg.wizard.completed && !this._isAdmin) html = `<div class="content"><div class="page"><div class="empty">${esc(this.t("setup_needed_user"))}</div></div></div>`;
     else html = this._shell();
@@ -212,8 +234,32 @@ export class InfinitixPanel extends HTMLElement {
 
   /** The layout actually used: Rail needs width, so narrow screens fall back to Mosaic. */
   _layout() {
-    const l = (this._wiz ? this._previewCfg : this._cfg)?.theme.layout || "mosaic";
-    return l === "rail" && this._narrow ? "mosaic" : l;
+    if (this._wiz) { const l = this._previewCfg?.theme.layout || "mosaic"; return l === "rail" && this._narrow ? "mosaic" : l; }
+    const c = this._cfg;
+    return resolveLayout({ stored: this._devLayout, homeDefault: c?.theme.layout, screen: c?.home.screen, allowed: this._features?.layouts, narrow: this._narrow });
+  }
+
+  /** Per-device layout choice: stored in this browser only, sends nothing to devices or the server. */
+  _layoutDialog() {
+    const t = this.t, allowed = this._features?.layouts || ["mosaic", "rows", "rail", "stage"];
+    const cur = this._devLayout || "";
+    const radio = (v, label, dis = false) => `<label class="row"><input type="radio" name="lay" data-mf="lay:${v}" ${cur === v ? "checked" : ""} ${dis ? "disabled" : ""}> ${esc(label)}</label>`;
+    this.openModal({
+      title: t("layout_device"),
+      body: `<div class="field">${radio("", t("layout_home_default", { l: t(`layout_${this._cfg.theme.layout}`) }))}
+        ${["mosaic", "rows", "rail", "stage"].map((l) => radio(l, `${t(`layout_${l}`)}${allowed.includes(l) ? "" : ` – ${t("layout_locked")}`}`, !allowed.includes(l))).join("")}</div>
+        <p class="muted small">${esc(t("layout_saved_device"))}</p>`,
+      actions: [{ id: "cancel", label: t("cancel") }, { id: "ok", label: t("save"), cls: "primary" }],
+      onAction: (id, f) => {
+        if (id !== "ok") return true;
+        const pick = Object.entries(f).find(([k, v]) => k.startsWith("lay:") && v)?.[0].slice(4) || null;
+        this._devLayout = pick || null;
+        writeDeviceLayout(this._devLayout, globalThis.localStorage, this._hass.user?.id || "");
+        this.render();
+        this.toast(t("layout_saved_device"));
+        return true;
+      },
+    });
   }
 
   _slides(cfg) { return ["", ...visibleRooms(cfg).map((r) => r.id)]; }
@@ -222,8 +268,8 @@ export class InfinitixPanel extends HTMLElement {
     const { t } = this;
     const cfg = this._cfg, v = this._view.name;
     const layout = this._layout();
-    const dash = v === "home" || v === "room";
-    const rail = dash && layout === "rail", stage = dash && layout === "stage";
+    const dash = v === "home" || v === "room" || v === "cat";
+    const stage = (v === "home" || v === "room") && layout === "stage";
     const banner = this._hass.__demo ? `<div class="banner">${esc(t("demo_banner"))}</div>` : "";
     let content = "";
     if (v === "wizard") content = renderWizard(this);
@@ -234,35 +280,69 @@ export class InfinitixPanel extends HTMLElement {
     else if (v === "pairing" && this._isAdmin) content = renderPairingPage(this);
     else if (v === "media" && this._isAdmin) content = renderMediaPage(this);
     else if (v === "shopping" && this._shop) content = renderShoppingPage(this);
+    else if (v === "status") content = renderStatusPage(this);
+    else if (v === "page") content = renderPageView(this, cfg, this._view.page);
+    else if (v === "cat") content = categoryHTML(this, cfg, this._view.cat, this._view.room || "");
     else if (v === "room") {
-      content = roomHTML(this, cfg, this._view.room, { back: !rail && !stage, title: !stage });
-      if (this._edit && this._isAdmin) content += `<div class="page" style="margin-block-start:16px"><button class="btn" data-act="add-card" data-room="${esc(this._view.room)}">+ ${esc(t("add_card"))}</button></div>`;
-    } else content = homeHTML(this, cfg, { hero: !rail, roomsGrid: !rail && !stage });
+      content = roomHTML(this, cfg, this._view.room, { back: !stage, title: !stage });
+      if (this._edit && this._isAdmin) {
+        const hidden = Object.entries(cfg.entities).filter(([, p]) => p.hidden && (p.room || UNASSIGNED) === this._view.room);
+        content += `<div class="page" style="margin-block-start:16px"><p class="muted small">${esc(t("drag_hint"))}</p><button class="btn" data-act="add-card" data-room="${esc(this._view.room)}">+ ${esc(t("add_card"))}</button>
+          ${hidden.length ? `<h2>${esc(t("restore_hidden"))}</h2><div class="elist">${hidden.map(([eid, p]) => `<div class="erow"><div class="meta"><div class="nm">${esc(p.name || this._invMap.get(eid)?.name || eid)}</div></div><div class="acts"><button class="btn" data-act="e-unhide" data-eid="${esc(eid)}">${esc(t("restore"))}</button></div></div>`).join("")}</div>` : ""}</div>`;
+      }
+    } else content = dashboardHTML(this, cfg, { roomsGrid: layout !== "rail" });
     if (stage) content = this._stageHead(cfg) + content;
 
     const hideNav = dash && cfg.tablet.hide_nav && !this._navShown;
     const menu = this._narrow && customElements.get("ha-menu-button") ? `<ha-menu-button></ha-menu-button>` : "";
-    const roomTabs = visibleRooms(cfg).map((r) => `<button class="tab" data-act="open-room" data-room="${esc(r.id)}" aria-current="${v === "room" && this._view.room === r.id ? "page" : "false"}">${esc(roomName(r, t))}</button>`).join("");
-    const homeTab = `<button class="tab" data-act="go-home" aria-current="${v === "home" ? "page" : "false"}">${esc(t("home"))}</button>`;
-    const nav = dash || v === "settings" || v === "manage" || v === "cameras" || v === "scenarios" || v === "pairing" || v === "media" || v === "shopping"
-      ? `<nav class="nav" aria-label="${esc(t("rooms"))}">${homeTab}${roomTabs}</nav>` : `<div style="flex:1"></div>`;
-    const admin = this._isAdmin && dash
-      ? `<button class="iconbtn" data-act="toggle-edit" aria-pressed="${this._edit}" aria-label="${esc(t("edit_mode"))}">✎</button><button class="iconbtn" data-act="open-settings" aria-label="${esc(t("settings"))}">⚙</button>` : "";
-    const brand = `<div class="brand"><span class="mark">∞</span><span class="word">INFINITIX</span></div>`;
-    const floating = hideNav ? `<button class="iconbtn floating-nav" data-act="tablet-menu" aria-label="menu">⋯</button>` : "";
+    const logo = `<span class="logo-wrap"><img class="logo logo-light" src="${LOGO}" alt="INFINITIX" width="176" height="32"><img class="logo logo-dark" src="${LOGO_DARK}" alt="INFINITIX" width="176" height="32"></span>`;
+    const brand = `<div class="side-brand">${menu}${logo}<span class="side-sub" dir="ltr">Smart Home</span></div>`;
+    const floating = hideNav || stage ? `<button class="iconbtn floating-nav" data-act="tablet-menu" aria-label="${esc(t("menu"))}">⋯</button>` : "";
     this._app.className = `app lay-${layout}`;
 
-    if (rail && !hideNav) {
-      const now = new Date();
-      return `${banner}<div class="rail-wrap"><aside class="rail" aria-label="${esc(t("rooms"))}">${brand}
-        <div class="rail-clock" data-clock aria-live="off">${esc(formatClock(now, this.lang))}</div>
-        <div class="rail-date" data-date>${esc(formatDate(now, this.lang))}${cfg.home.name ? ` · ${esc(cfg.home.name)}` : ""}</div>
-        ${weatherHTML(this, cfg)}
-        <nav class="rail-nav">${homeTab}${roomTabs}</nav><div class="rail-admin">${admin}</div></aside>
-        <main class="content layout-rail">${content}</main></div>${floating}`;
-    }
-    const top = hideNav ? "" : `<header class="topbar">${menu}${brand}${nav}${admin}</header>`;
-    return `${banner}${top}<main class="content layout-${esc(layout)}">${content}</main>${floating}`;
+    if (v === "wizard") return `${banner}<div class="shell no-side"><main class="main content">${`<div class="wiz-brand">${logo}</div>`}${content}</main></div>`;
+
+    const cur = (on) => `aria-current="${on ? "page" : "false"}"`;
+    const rooms = visibleRooms(cfg).map((r) => `<button class="side-link" data-act="open-room" data-room="${esc(r.id)}" ${cur(v === "room" && this._view.room === r.id)}>${icon(r.icon || "mdi:door", "generic")}<span>${esc(roomName(r, t))}</span><span class="side-meta" data-room-temp="${esc(r.id)}">${roomTempText(this, cfg, r.id)}</span></button>`).join("");
+    const pages = visiblePages(cfg).map((p) => `<button class="side-link" data-act="open-page" data-pid="${esc(p.id)}" ${cur(v === "page" && this._view.page === p.id)}>${icon(p.icon || "mdi:star-outline", "generic")}<span>${esc(p.name)}</span></button>`).join("");
+    const systemsBlock = `<h2 class="side-label">${esc(t("systems"))}</h2><div class="side-group">${sideSystemsHTML(this, cfg, v === "cat" ? this._view.cat : "")}</div>`;
+    const roomsBlock = rooms ? `<h2 class="side-label">${esc(t("rooms"))}</h2><div class="side-group">${rooms}</div>` : "";
+    const pagesBlock = pages ? `<h2 class="side-label">${esc(t("pages"))}</h2><div class="side-group">${pages}</div>` : "";
+    const now = new Date();
+    const railClock = "";
+    const tool = (act, ic, label, extra = "") => `<button class="side-tool" data-act="${act}" ${extra}>${icon(ic, "generic")}<span>${esc(label)}</span></button>`;
+    const tools = [
+      tool("layout-pick", "mdi:view-dashboard-variant-outline", t("layout_device")),
+      tool("open-status", "mdi:timer-outline", t("sc_status"), cur(v === "status")),
+      ...(this._isAdmin ? [
+        ...(v === "room" ? [tool("toggle-edit", "mdi:pencil-outline", t("edit_mode"), `aria-pressed="${this._edit}"`)] : []),
+        tool("open-settings", "mdi:cog-outline", t("settings"), cur(v === "settings")),
+      ] : []),
+    ].join("");
+    const side = `<aside class="side" aria-label="${esc(t("navigation"))}">${brand}${railClock}
+      <nav class="side-nav" aria-label="${esc(t("navigation"))}">
+        <button class="side-home" data-act="go-home" ${cur(v === "home")}><span class="tile-ico">${icon("mdi:home-outline", "generic")}</span><strong>${esc(t("dashboard"))}</strong></button>
+        ${layout === "rail" ? roomsBlock + systemsBlock : systemsBlock + roomsBlock}${pagesBlock}</nav>
+      <div class="side-foot">${tools}</div></aside>`;
+    const showSide = !stage && !hideNav;
+    const chips = stage || hideNav ? "" : this._chipsBar(cfg);
+    return `${banner}<div class="shell ${showSide ? "" : "no-side"}">${showSide ? side : ""}<main class="main content layout-${esc(layout)}">${chips}${content}</main></div>${floating}`;
+  }
+
+  /** Top information chips (reference design): home, status, date/time, weather. */
+  _chipsBar(cfg) {
+    const { t } = this, now = new Date();
+    const items = visibleEntities(cfg).filter((e) => !["scene", "script", "shopping"].includes(e.pref.card));
+    const unav = items.filter((e) => { const s = this._hass.states[e.eid]?.state; return !s || s === "unavailable" || s === "unknown"; }).length;
+    const online = this._hass.connected !== false;
+    const status = !online ? t("status_offline") : unav ? t("status_unavail", { n: unav }) : t("status_ok");
+    const w = cfg.weather_entity && this._hass.states[cfg.weather_entity];
+    return `<header class="chips-bar" aria-label="${esc(t("status_bar"))}">
+      ${cfg.home.name ? `<div class="chip-info"><small>${esc(t("home_name"))}</small><strong>${esc(cfg.home.name)}</strong></div>` : ""}
+      <div class="chip-info"><small>${esc(t("system_state"))}</small><span class="tag ${!online || unav ? "tag-warn" : ""}" data-sys-status>${esc(status)}</span></div>
+      <div class="chip-info"><small>${esc(t("date_time"))}</small><time data-clock>${esc(formatClock(now, this.lang))}</time><span class="chip-sub" data-date>${esc(formatDate(now, this.lang))}</span></div>
+      ${w ? `<button class="chip-info chip-btn" data-act="forecast"><small>${esc(t("weather"))}</small><strong data-chip-weather><bdi dir="ltr">${esc(w.attributes.temperature ?? "")}${esc(w.attributes.temperature_unit || "°")}</bdi></strong><span class="chip-sub">${esc(translateState(t, w.state) ?? w.state)}</span></button>` : ""}
+    </header>`;
   }
 
   _stageHead(cfg) {
@@ -326,6 +406,13 @@ export class InfinitixPanel extends HTMLElement {
       this._refreshCard(el, st);
     }
     this._app.querySelectorAll("[data-room-temp]").forEach((n) => { n.textContent = roomTempText(this, this._viewCfg() || this._cfg, n.dataset.roomTemp); });
+    const vc = this._viewCfg() || this._cfg;
+    this._app.querySelectorAll("[data-cat-status]").forEach((n) => { n.textContent = systemStatus(this, vc, n.dataset.catStatus, n.dataset.catRoom || ""); });
+    const bar = this._app.querySelector(".chips-bar");
+    if (bar && this._view.name !== "wizard") {
+      const html = this._chipsBar(this._cfg);
+      if (html !== this._chipsHTML) { this._chipsHTML = html; const tpl = document.createElement("template"); tpl.innerHTML = html; bar.replaceWith(tpl.content.firstElementChild); }
+    }
     const w = this._app.querySelector("[data-weather]");
     if (w) { const tpl = document.createElement("template"); tpl.innerHTML = weatherHTML(this, this._viewCfg() || this._cfg); if (tpl.content.firstElementChild) w.replaceWith(tpl.content.firstElementChild); }
   }
@@ -363,11 +450,15 @@ export class InfinitixPanel extends HTMLElement {
 
   _tick() {
     const now = new Date();
-    const set = (sel, text) => { const n = this._app.querySelector(sel); if (n) n.textContent = text; };
+    if (this._saverOn) renderSaver(this);
+    else if (saverEnabled(this) && !this._modal && !this._wiz && !this._manage && this._view.name !== "wizard"
+      && Date.now() - this._lastActive >= this._cfg.display.saver.idle_min * 60000) showSaver(this);
+    const set = (sel, text) => { this._app.querySelectorAll(sel).forEach((n) => { n.textContent = text; }); };
     set("[data-clock]", formatClock(now, this._lang));
     const first = (this._hass?.user?.name || "").split(" ")[0];
     set("[data-greet]", `${this.t(greetingKey(now.getHours()))}${first ? `, ${first}` : ""}`);
-    set("[data-date]", `${formatDate(now, this._lang)}${this._cfg?.home.name ? ` · ${this._cfg.home.name}` : ""}`);
+    set("[data-date]", formatDate(now, this._lang));
+    set("[data-hdate]", hebrewDate(now, this._lang));
   }
 
   // ------------------------------------------------------------ events
@@ -404,6 +495,7 @@ export class InfinitixPanel extends HTMLElement {
     if (act.startsWith("pr-")) return pairingAct(this, act, el);
     if (act.startsWith("md-")) return mediaAct(this, act, el);
     if (act.startsWith("sh-")) return shoppingAct(this, act, el);
+    if (act.startsWith("pg-")) return pagesAct(this, act, el);
     if (this._wiz && (act.startsWith("w-") || act.startsWith("pk-"))) return wizardAct(this, act, el);
     if (/^(s|i|m)-/.test(act) || (this._view.name === "manage" && act.startsWith("pk-"))) return settingsAct(this, act, el);
     return this._dashAct(act, el);
@@ -418,6 +510,13 @@ export class InfinitixPanel extends HTMLElement {
       case "open-room": return this._go({ name: "room", room: el.dataset.room });
       case "open-settings": return this._isAdmin ? openSettings(this) : this.toast(t("admin_only"), true);
       case "toggle-edit": this._edit = !this._edit; return this.render();
+      case "layout-pick": return this._layoutDialog();
+      case "open-status": return this._go({ name: "status" });
+      case "open-page": return this._go({ name: "page", page: el.dataset.pid });
+      case "open-cat": return this._go({ name: "cat", cat: el.dataset.cat, room: el.dataset.room || "" });
+      case "cat-batch": return this._lightingBatch(el.dataset.op, el.dataset.room || "");
+      case "forecast": return openForecast(this);
+      case "e-unhide": { if (!this._isAdmin) return; const p = this._cfg.entities[el.dataset.eid]; if (p) { p.hidden = false; this.persistSoon(); this.render(); } return; }
       case "add-card": return this._isAdmin ? openManage(this, el.dataset.room) : undefined;
       case "exit-admin": return this._exitToAdmin();
       case "tablet-menu": return this._tabletMenu();
@@ -529,7 +628,9 @@ export class InfinitixPanel extends HTMLElement {
       title: t("brand"),
       body: "",
       actions: [
-        { id: "nav", label: t("show_nav") },
+        ...(this._layout() === "stage" ? [] : [{ id: "nav", label: t("show_nav") }]),
+        { id: "layout", label: t("layout_device") },
+        { id: "status", label: t("sc_status") },
         ...(this._isAdmin ? [{ id: "settings", label: t("settings") }] : []),
         { id: "admin", label: t("exit_admin") },
         { id: "close", label: t("close"), cls: "primary" },
@@ -537,11 +638,67 @@ export class InfinitixPanel extends HTMLElement {
       onAction: (id) => {
         if (id === "nav") { this._navShown = true; this.render(); }
         if (id === "settings") openSettings(this);
+        if (id === "layout") setTimeout(() => this._layoutDialog());
+        if (id === "status") this._go({ name: "status" });
         if (id === "admin") this._exitToAdmin();
         return true;
       },
     });
   }
+
+  // ------------------------------------------------------------ lighting batch (category view)
+  _batchTargets(cfg, room) {
+    return systemItems(cfg, "lighting", room).map((e) => e.eid)
+      .filter((eid) => ["light", "switch"].includes(domainOf(eid)) && this._hass.states[eid] && !["unavailable", "unknown"].includes(this._hass.states[eid].state));
+  }
+  _isLightingBatchable(cfg, room) { return this._batchTargets(cfg, room).length > 0; }
+  async _lightingBatch(op, room) {
+    if (!["on", "off"].includes(op)) return;
+    const targets = this._batchTargets(this._cfg, room);
+    if (!targets.length) return;
+    const scope = room ? roomName(this._cfg.rooms.find((r) => r.id === room), this.t) : this.t("whole_home");
+    const r = await this._confirm(this.t(op === "on" ? "confirm_all_on" : "confirm_all_off", { n: targets.length, scope }), { danger: false });
+    if (!r.ok) return;
+    // Each entity is called with the user's own session, so HA checks every permission.
+    for (const eid of targets) await this._call(eid, domainOf(eid), op === "on" ? "turn_on" : "turn_off", { entity_id: eid });
+  }
+
+  // ------------------------------------------------------------ drag and drop (edit mode)
+  _dndStart(e) {
+    const h = e.target.closest?.("[data-drag]");
+    if (!h || !this._edit || !this._isAdmin) return;
+    const card = h.closest(".ix-card[data-eid]");
+    if (!card) return;
+    e.preventDefault();
+    this._dnd = { eid: card.dataset.eid, id: e.pointerId, over: null };
+    card.classList.add("dragging");
+    try { h.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+  }
+  _dndMove(e) {
+    const d = this._dnd;
+    if (!d || e.pointerId !== d.id) return;
+    const over = this.shadowRoot.elementFromPoint?.(e.clientX, e.clientY)?.closest(".ix-card[data-eid]");
+    const eid = over?.dataset.eid || null;
+    if (eid === d.over) return;
+    this._app.querySelectorAll(".drop-target").forEach((n) => n.classList.remove("drop-target"));
+    d.over = eid !== d.eid ? eid : null;
+    if (d.over) over.classList.add("drop-target");
+  }
+  _dndEnd(e) {
+    const d = this._dnd;
+    if (!d || e.pointerId !== d.id) return;
+    this._dnd = null;
+    if (d.over) {
+      const cfg = this._cfg, room = cfg.entities[d.eid]?.room || UNASSIGNED;
+      if ((cfg.entities[d.over]?.room || UNASSIGNED) === room) {
+        const ids = entitiesOfRoom(cfg, room).map((x) => x.eid);
+        applyOrder(cfg.entities, reorder(ids, d.eid, d.over));
+        this.persistSoon();
+      }
+    }
+    this.render();
+  }
+  _dndCancel() { if (this._dnd) { this._dnd = null; this.render(); } }
 
   // ------------------------------------------------------------ edit mode
   _editAct(act, eid, card) {

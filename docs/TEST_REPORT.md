@@ -1,4 +1,54 @@
-# INFINITIX Smart Home 0.2.0 – test report
+# INFINITIX Smart Home 0.4.0 – test report
+
+Date: 2026-11-19. Baseline before changes: repo already at 0.3.0 (not 0.1.0); 37 tests passed (only with `PYTHONPATH=.`; `pytest.ini` now sets `pythonpath`).
+
+# 0.4.0 (2026-11-19)
+
+**Automated – pytest on HA 2026.2.3 (pytest-homeassistant-custom-component 0.13.316): 59 passed** (37 existing + 22 new in `tests/test_v4.py`):
+storage v3→v4 migration keeps all data and is idempotent; real `.storage` v1 file migrates with backup kept; newer schema refused and left untouched;
+non-admin gets `unauthorized` for preview/sources/log/licence/import/run; member status contains no entity ids; `save_config` cannot change run log,
+licence, scenarios or sensor mapping; layout changes keep rooms/cards and send no service calls; same occurrence never runs twice; time trigger fires once
+and logs; missing sensor → skip + warning + log; stale sensor not used; explicit mapping beats auto-discovery; preview runs nothing; restore rules
+(latest wins, unknown/tie = ambiguous → no action); catch-up inside window only, not repeated if it already ran; integration reload never runs recovery;
+recovery runs on the real `homeassistant_started` event; brightness dropped for on/off-only lights; Free/Pro proposal + legacy grandfathering; downgrade
+locks extras without deleting, upgrade unlocks unchanged; **regression: inventory with real devices** (bug found live, see below).
+**Node (`node --test tests/js/*.test.mjs`): 5 passed** – screen-type default, per-device choice wins, Rail falls back on narrow screens, plan limits,
+storage failures never throw, switching layouts leaves customisations unchanged, drag reorder.
+
+**Live – real Home Assistant 2026.2.3 process + HA demo integration (129 entities) + real Jewish Calendar integration, Chrome 153 headless (Playwright):**
+- INFINITIX and Jewish Calendar added through their real config flows; admin + non-admin ("family") users.
+- Wizard: all 9 steps walked to "save & open", no panel errors. Scenarios step found the real Jewish Calendar sensors automatically
+  (`upcoming_candle_lighting`, `upcoming_havdalah`, `issur_melacha_in_effect`) with status OK and current values.
+- Dashboard (reference design), category view: status "0 on · 16 off" → batch "turn on" asked for confirmation, sent `turn_on` per available entity,
+  status updated live from HA to "10 on · 6 off".
+- Per-device layout: Rows / Stage / Mosaic / Rail switched from the panel → stored only in the browser, server config byte-identical, **0 service calls**.
+- Screensaver preview with agenda from real `calendar`/`todo` entities; tap closes it without acting. Forecast modal: 24 h + 7 days from the HA weather entity.
+- Light, dark, tablet 1280×800, phone 390×844, desktop 1440×900 screenshots reviewed.
+- Household user: no settings/edit; status view works; live WebSocket: scan/export/scenarios list/log/save_config → `unauthorized`, status → OK.
+- Performance: 483 configured entities; lighting view with 413 cards fully rendered in 0.31 s; 50 live state changes → 0 long tasks.
+- **Real restart:** time scenario due 23:41 while HA was stopped; HA started 23:42 → ran once as `catch-up` (logged), switch turned off; wizard did not re-appear,
+  all settings kept.
+
+**Bugs found and fixed in this round**
+- `discovery.collect_inventory` iterated `device_registry.devices` (keys), so the panel failed to load ("Unknown error") on any HA with real devices.
+  Introduced by the 0.3 deprecation fix; unit tests had no devices. Fixed (`.values()`) + regression test.
+- Layout dialog read radio buttons as always checked → a chosen layout silently fell back to the home default. Fixed.
+- Negative/unit temperatures rendered reversed in RTL (`24.4°C-`). Fixed with LTR isolation.
+
+**Not verified yet (needs hardware / real home / time)**
+- A real Shabbat end-to-end with a physical switch and light (only the mechanism, a real restart and the real sensors were verified; the Jewish Calendar
+  instance used the default location, so the times themselves were not checked against a calendar).
+- Shopping list against the HA mobile app and Assist (panel side unchanged from 0.3; same `todo` entity).
+- Real 11" wall tablet (touch drag, swipe in Stage, kiosk), Safari/iOS, Android WebView.
+- HA 2026.11.x this round (only 2026.2.3 live + unit tests; 2026.11.1 was covered in 0.3). Marketplace/HACS/ZIP install flows not re-run.
+- Live cameras, alarm with code, locks and media on real devices (demo entities only).
+- Russian strings for 0.4 are a draft.
+- The HA loading screen ("Loading data" with the HA logo) belongs to Home Assistant and cannot be rebranded without modifying HA; the panel's own
+  loading screen now shows the INFINITIX logo.
+- Free/Pro split is a proposal (the spec document's own split was not available in this session); enforcement is off.
+- Open-Meteo fallback and external licence check: not implemented (need explicit consent / business decision).
+
+# (history) INFINITIX Smart Home 0.2.0 – test report
 
 Date: 2026-11-14. HA versions tested: **2026.2.3** (Python 3.13) and **2026.11.1** (Python 3.14, live instance only). Unit tests: 2026.2.3 and 2026.10.4.
 

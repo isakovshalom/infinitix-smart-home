@@ -27,6 +27,11 @@ _TRIGGER_SUN = ("sunrise", "sunset")
 _TRIGGER_JEWISH = ("candle_lighting", "havdalah")
 _SHABBAT = ("any", "only", "not")
 _OFFSET_MAX = 360
+_CATCHUP_MAX = 720
+SOURCE_KEYS = {"candle_lighting": "sensor", "havdalah": "sensor", "issur_melacha": "binary_sensor"}
+_PAGES_MAX = 50
+SCENARIO_LOG_MAX = 200
+_PAGE_ENTITIES_MAX = 200
 
 
 class ConfigError(ValueError):
@@ -101,6 +106,77 @@ def _scenario_last_run(raw: Any) -> dict[str, Any] | None:
     }
 
 
+def _int_range(value: Any, lo: int, hi: int, default: int, what: str) -> int:
+    if value is None:
+        return default
+    if not isinstance(value, int) or isinstance(value, bool) or not lo <= value <= hi:
+        raise ConfigError(f"{what} must be {lo}-{hi}")
+    return value
+
+
+def validate_sources(raw: Any) -> dict[str, str]:
+    """Explicit Jewish Calendar sensor mapping chosen in the wizard."""
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        raise ConfigError("scenario_sources must be an object")
+    out: dict[str, str] = {}
+    for key, eid in raw.items():
+        if key not in SOURCE_KEYS or not eid:
+            continue
+        eid = _entity_id(eid)
+        if eid.split(".", 1)[0] != SOURCE_KEYS[key]:
+            raise ConfigError(f"{key} must be a {SOURCE_KEYS[key]} entity")
+        out[key] = eid
+    return out
+
+
+def validate_display(raw: Any) -> dict[str, Any]:
+    saver = (raw or {}).get("saver") if isinstance(raw, dict) else None
+    saver = saver if isinstance(saver, dict) else {}
+    cals = saver.get("calendars") or []
+    if not isinstance(cals, list) or len(cals) > 20:
+        raise ConfigError("calendars must be a list of at most 20")
+    calendars = [_entity_id(c) for c in cals]
+    if any(not c.startswith(("calendar.", "todo.")) for c in calendars):
+        raise ConfigError("agenda sources must be calendar or todo entities")
+    return {
+        "saver": {
+            "enabled": bool(saver.get("enabled", False)),
+            "idle_min": _int_range(saver.get("idle_min"), 1, 240, 5, "idle_min"),
+            "weather": bool(saver.get("weather", True)),
+            "agenda": bool(saver.get("agenda", True)),
+            "calendars": calendars,
+        }
+    }
+
+
+def validate_pages(raw: Any) -> list[dict[str, Any]]:
+    if raw is None:
+        return []
+    if not isinstance(raw, list) or len(raw) > _PAGES_MAX:
+        raise ConfigError(f"pages must be a list of at most {_PAGES_MAX}")
+    out, seen = [], set()
+    for i, page in enumerate(raw):
+        if not isinstance(page, dict):
+            raise ConfigError("page must be an object")
+        pid = _text(page.get("id"), 40)
+        if not pid or pid in seen:
+            raise ConfigError("page ids must be unique and non-empty")
+        seen.add(pid)
+        ents = page.get("entities") or []
+        if not isinstance(ents, list) or len(ents) > _PAGE_ENTITIES_MAX:
+            raise ConfigError("too many entities on a page")
+        out.append({
+            "id": pid,
+            "name": _text(page.get("name"), 60) or pid,
+            "icon": _icon(page.get("icon")),
+            "order": page["order"] if isinstance(page.get("order"), int) else i,
+            "entities": list(dict.fromkeys(_entity_id(e) for e in ents)),
+        })
+    return out
+
+
 def validate_scenarios(raw: Any) -> list[dict[str, Any]]:
     if raw is None:
         return []
@@ -148,6 +224,11 @@ def validate_scenarios(raw: Any) -> list[dict[str, Any]]:
                 "shabbat": _choice(item.get("shabbat"), _SHABBAT, "any"),
                 "actions": actions,
                 "last_run": _scenario_last_run(item.get("last_run")),
+                # Late run allowed after a missed point in time (0 = never run late).
+                "catchup_min": _int_range(item.get("catchup_min"), 0, _CATCHUP_MAX, 0, "catchup_min"),
+                # After an HA restart, re-apply this scenario's state if it is the latest one due.
+                "restore": bool(item.get("restore", False)),
+                "last_fire": item.get("last_fire") if isinstance(item.get("last_fire"), str) else None,
             }
         )
     return out
@@ -254,4 +335,13 @@ def validate_config(raw: Any) -> dict[str, Any]:
         raise ConfigError("seen_entities too large")
     out["seen_entities"] = [_entity_id(e) for e in seen]
     out["scenarios"] = validate_scenarios(raw.get("scenarios"))
+    out["scenario_sources"] = validate_sources(raw.get("scenario_sources"))
+    out["display"] = validate_display(raw.get("display"))
+    out["pages"] = validate_pages(raw.get("pages"))
+    # Server-owned (never taken from the client): run log and licence.  Callers
+    # that load from storage pass them through; ws save_config overwrites them.
+    log = raw.get("scenario_log")
+    out["scenario_log"] = log[-SCENARIO_LOG_MAX:] if isinstance(log, list) else []
+    lic = raw.get("license") if isinstance(raw.get("license"), dict) else {}
+    out["license"] = {"tier": _choice(lic.get("tier"), ("free", "pro"), "free"), "legacy": bool(lic.get("legacy", False))}
     return out

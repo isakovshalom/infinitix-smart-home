@@ -33,9 +33,10 @@ from .discovery import (
     find_new_entities,
     propose_config,
 )
+from .features import entitlements
 from .portability import apply_import, export_config, plan_import, validate_export
 from . import media, pairing
-from .validation import ConfigError, validate_config, validate_scenarios
+from .validation import ConfigError, validate_config, validate_scenarios, validate_sources
 
 
 def _manager(hass: HomeAssistant):
@@ -66,6 +67,11 @@ def async_register_commands(hass: HomeAssistant) -> None:
         ws_scenarios_list,
         ws_scenarios_save,
         ws_scenarios_run,
+        ws_scenarios_status,
+        ws_scenarios_preview,
+        ws_scenarios_sources,
+        ws_scenarios_log,
+        ws_license_set,
     ):
         websocket_api.async_register_command(hass, command)
 
@@ -75,12 +81,17 @@ def async_register_commands(hass: HomeAssistant) -> None:
 def ws_get_config(hass, connection, msg) -> None:
     """Return the stored configuration (readable by every logged-in user)."""
     data = _manager(hass).data
+    if not connection.user.is_admin:
+        # Household members get the dashboard config; scenario internals stay with admins.
+        data = {k: v for k, v in data.items() if k not in ("scenario_log", "scenarios", "wizard")}
+        data["wizard"] = {"completed": _manager(hass).data["wizard"]["completed"], "step": 0, "draft": {}}
     connection.send_result(
         msg["id"],
         {
             "config": data,
             "is_admin": connection.user.is_admin,
             "options": hass.data[DOMAIN]["options"],
+            "features": entitlements(_manager(hass).data.get("license")),
         },
     )
 
@@ -123,8 +134,13 @@ async def ws_save_config(hass, connection, msg) -> None:
         connection.send_error(msg["id"], "invalid_config", str(err))
         return
     # Scenarios are edited only through infinitix/scenarios/* (they carry server-owned
-    # run history), so a general config save never overwrites them.
-    clean["scenarios"] = _manager(hass).data.get("scenarios", [])
+    # run history), so a general config save never overwrites them; the run log and
+    # the licence are server-owned too.
+    current = _manager(hass).data
+    # The Jewish Calendar mapping is edited through infinitix/scenarios/sources (the wizard's
+    # scenarios step saves it there while its draft still holds the old copy).
+    for key in ("scenarios", "scenario_log", "license", "scenario_sources"):
+        clean[key] = current.get(key, clean[key])
     await _manager(hass).async_replace(clean)
     connection.send_result(msg["id"], {"config": _manager(hass).data})
 
@@ -316,12 +332,24 @@ def _runner(hass: HomeAssistant):
     return hass.data[DOMAIN].get("runner")
 
 
-def _scenario_view(hass: HomeAssistant) -> dict[str, Any]:
+def _scenario_view(hass: HomeAssistant, scenarios: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     runner = _runner(hass)
+    data = _manager(hass).data
+    locked = runner.locked() if runner else set()
     items = []
-    for sc in _manager(hass).data.get("scenarios", []):
-        items.append({**sc, "next_run": runner.next_run(sc) if runner and sc.get("enabled") else None})
-    return {"scenarios": items, "sources": runner.sources() if runner else {}}
+    for sc in data.get("scenarios", []) if scenarios is None else scenarios:
+        items.append({
+            **sc,
+            "next_run": runner.next_run(sc) if runner and sc.get("enabled") and sc["id"] not in locked else None,
+            "locked": sc["id"] in locked,
+            "warnings": runner.warnings(sc) if runner else [],
+        })
+    return {
+        "scenarios": items,
+        "sources": runner.sources() if runner else {},
+        "upcoming": runner.upcoming() if runner and scenarios is None else [],
+        "features": entitlements(data.get("license")),
+    }
 
 
 @websocket_api.websocket_command({vol.Required("type"): "infinitix/scenarios/list"})
@@ -344,10 +372,16 @@ async def ws_scenarios_save(hass, connection, msg) -> None:
     except ConfigError as err:
         connection.send_error(msg["id"], "invalid_scenarios", str(err))
         return
-    # last_run is owned by the server: keep ours, ignore the client's.
-    old = {s["id"]: s.get("last_run") for s in manager.data.get("scenarios", [])}
+    # last_run / last_fire are owned by the server: keep ours, ignore the client's.
+    old = {s["id"]: s for s in manager.data.get("scenarios", [])}
     for sc in clean:
-        sc["last_run"] = old.get(sc["id"])
+        sc["last_run"] = old.get(sc["id"], {}).get("last_run")
+        sc["last_fire"] = old.get(sc["id"], {}).get("last_fire")
+    ent = entitlements(manager.data.get("license"))
+    if ent["enforced"] and len(clean) > max(ent["max_scenarios"], len(old)):
+        # Over the plan limit only *new* scenarios are refused; stored ones are never dropped.
+        connection.send_error(msg["id"], "plan_limit", f"max {ent['max_scenarios']} scenarios")
+        return
     manager.data["scenarios"] = clean
     await manager.async_save()
     if _runner(hass):
@@ -371,6 +405,82 @@ async def ws_scenarios_run(hass, connection, msg) -> None:
         connection.send_error(msg["id"], "not_found", "no such scenario")
         return
     connection.send_result(msg["id"], {"last_run": result})
+
+
+@websocket_api.websocket_command({vol.Required("type"): "infinitix/scenarios/status"})
+@callback
+def ws_scenarios_status(hass, connection, msg) -> None:
+    """Read-only status for every household member: names, times, results, warnings.
+
+    No entity ids or settings are returned, so it reveals nothing the dashboard does not.
+    """
+    view = _scenario_view(hass)
+    keep = ("id", "name", "enabled", "next_run", "last_run", "locked", "warnings")
+    connection.send_result(msg["id"], {
+        "scenarios": [{k: sc.get(k) for k in keep} for sc in view["scenarios"]],
+        "upcoming": [{k: u[k] for k in ("id", "name", "at")} for u in view["upcoming"]],
+        "times": {k: {"status": v["status"], "value": v["value"]} for k, v in view["sources"].get("detail", {}).items()},
+    })
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): "infinitix/scenarios/preview", vol.Required("scenarios"): list}
+)
+@websocket_api.require_admin
+@callback
+def ws_scenarios_preview(hass, connection, msg) -> None:
+    """Next times, warnings and planned actions for unsaved scenarios (runs nothing)."""
+    try:
+        clean = validate_scenarios(msg["scenarios"])
+    except ConfigError as err:
+        connection.send_error(msg["id"], "invalid_scenarios", str(err))
+        return
+    connection.send_result(msg["id"], _scenario_view(hass, clean))
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): "infinitix/scenarios/sources", vol.Required("sources"): dict}
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_scenarios_sources(hass, connection, msg) -> None:
+    """Save the Jewish Calendar sensor mapping and return its live status for checking."""
+    try:
+        clean = validate_sources(msg["sources"])
+    except ConfigError as err:
+        connection.send_error(msg["id"], "invalid_sources", str(err))
+        return
+    manager = _manager(hass)
+    manager.data["scenario_sources"] = clean
+    await manager.async_save()
+    if _runner(hass):
+        _runner(hass).async_reload()
+    connection.send_result(msg["id"], _scenario_view(hass))
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): "infinitix/scenarios/log", vol.Optional("limit", default=50): vol.All(int, vol.Range(min=1, max=200))}
+)
+@websocket_api.require_admin
+@callback
+def ws_scenarios_log(hass, connection, msg) -> None:
+    log = _manager(hass).data.get("scenario_log", [])
+    connection.send_result(msg["id"], {"log": list(reversed(log[-msg["limit"]:]))})
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): "infinitix/license/set", vol.Required("tier"): vol.In(["free", "pro"])}
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_license_set(hass, connection, msg) -> None:
+    """Placeholder until a licence server exists.  Changing the tier never deletes data."""
+    manager = _manager(hass)
+    manager.data["license"] = {**manager.data.get("license", {}), "tier": msg["tier"]}
+    await manager.async_save()
+    if _runner(hass):
+        _runner(hass).async_reload()
+    connection.send_result(msg["id"], {"features": entitlements(manager.data["license"])})
 
 
 # ------------------------------------------------------------------ pairing (Matter / Zigbee)

@@ -207,6 +207,7 @@ export function cardHTML(ctx, eid, pref) {
 
   const edit = ctx.edit
     ? `<div class="edit-row" role="group" aria-label="${esc(ctx.t("edit_mode"))}">
+        <span class="iconbtn drag-handle" data-drag aria-hidden="true" title="${esc(ctx.t("drag_handle"))}">⠿</span>
         <button class="iconbtn" data-act="e-up" aria-label="${esc(ctx.t("move_up"))}">↑</button>
         <button class="iconbtn" data-act="e-down" aria-label="${esc(ctx.t("move_down"))}">↓</button>
         <button class="iconbtn" data-act="e-size" aria-label="${esc(ctx.t("entity_size"))}">${esc(pref.size.toUpperCase())}</button>

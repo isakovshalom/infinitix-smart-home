@@ -26,7 +26,8 @@ export function weatherHTML(app, cfg) {
   if (!st) return "";
   const temp = st.attributes.temperature;
   const cond = translateState(app.t, st.state) ?? (app._hass.formatEntityState?.(st) ?? st.state);
-  return `<div class="weather" data-weather="${esc(eid)}">${icon("mdi:weather-partly-cloudy", "sensor")}<span>${temp != null ? esc(temp) + esc(st.attributes.temperature_unit || "°") : ""}</span><span class="muted small">${esc(cond)}</span></div>`;
+  // A button: opens the 24-hour / 7-day forecast when the weather source provides one.
+  return `<button class="weather" data-weather="${esc(eid)}" data-act="forecast" aria-label="${esc(app.t("forecast"))}">${icon("mdi:weather-partly-cloudy", "sensor")}<bdi dir="ltr">${temp != null ? esc(temp) + esc(st.attributes.temperature_unit || "°") : ""}</bdi><span class="muted small">${esc(cond)}</span></button>`;
 }
 
 export function homeHTML(app, cfg, { hero = true, roomsGrid = true } = {}) {

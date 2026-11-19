@@ -16,4 +16,6 @@ export const DEFAULT_CONFIG = () => ({
   wizard: { completed: false, step: 0, draft: {} },
   rooms: [], entities: {}, room_temp_sensor: {}, weather_entity: null,
   tablet: { hide_nav: false }, seen_entities: [],
+  display: { saver: { enabled: false, idle_min: 5, weather: true, agenda: true, calendars: [] } },
+  pages: [], scenario_sources: {},
 });

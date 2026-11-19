@@ -8,7 +8,11 @@ import { initPicker, renderPicker, renderPickerList, pickerAct, setField } from 
 import { mergeProposal, startWizard, ensureUnassigned } from "./wizard.js";
 import { roomName, UNASSIGNED } from "./logic.js";
 
-const FRONTEND_VERSION = "0.1.0";
+import { pagesSettingsHTML } from "./pages.js";
+import { agendaSources, showSaver } from "./saver.js";
+import { defaultLayoutForScreen } from "./layout.js";
+
+const FRONTEND_VERSION = "0.4.0";
 
 export async function openSettings(app) {
   app._view = { name: "settings" };
@@ -44,6 +48,8 @@ export function renderSettings(app) {
       <div class="field"><label class="label">${esc(t("layout"))}</label><select data-act="s-layout">${opts(["mosaic", "rows", "rail", "stage"].map((l) => [l, t(`layout_${l}`)]), c.theme.layout)}</select></div>
       <div class="field"><label class="label" for="s-accent">${esc(t("accent"))}</label><input id="s-accent" type="color" class="input" data-field="s.theme.accent" value="${esc(c.theme.accent || "#00caec")}" style="width:96px;padding:4px"></div></div>
 
+    ${saverHTML(app)}
+    ${pagesSettingsHTML(app)}
     <div class="panel"><h2 style="margin-block-start:0">${esc(t("s_tablet"))}</h2>
       <label class="row"><input type="checkbox" class="chk" data-act="s-hidenav" ${c.tablet.hide_nav ? "checked" : ""}> ${esc(t("hide_nav"))}</label>
       <p class="muted small">${esc(t("sidebar_hint"))}</p>
@@ -68,7 +74,19 @@ export function renderSettings(app) {
         <button class="btn" data-act="s-import-pick">${esc(t("import"))}</button>
         <input type="file" accept="application/json,.json" data-act="s-import-file" hidden></div></div>
     ${app._import ? renderImport(app) : ""}
-    <p class="muted small">${esc(t("version"))}: ${FRONTEND_VERSION}</p></div>`;
+    <p class="muted small">${esc(t("version"))}: ${esc(app._panelCfg?.config?.version || FRONTEND_VERSION)} · ${esc(t("plan"))}: ${esc(t(`plan_${app._features?.tier || "free"}`))}${app._features && !app._features.enforced ? ` – ${esc(t("plan_not_enforced"))}` : ""}</p></div>`;
+}
+
+function saverHTML(app) {
+  const { t } = app, sv = app._cfg.display?.saver || { enabled: false, idle_min: 5, weather: true, agenda: true, calendars: [] };
+  const sources = agendaSources(app);
+  return `<div class="panel"><h2 style="margin-block-start:0">${esc(t("saver"))}</h2>
+    <label class="row"><input type="checkbox" class="chk" data-act="s-saver" ${sv.enabled ? "checked" : ""}> ${esc(t("saver_enable"))}</label>
+    <div class="field"><label class="label" for="s-saver-idle">${esc(t("saver_idle"))}</label><input id="s-saver-idle" class="input" type="number" min="1" max="240" data-act="s-saver-idle" value="${sv.idle_min}" dir="ltr" style="max-width:120px"></div>
+    <label class="row"><input type="checkbox" class="chk" data-act="s-saver-weather" ${sv.weather ? "checked" : ""}> ${esc(t("saver_weather"))}</label>
+    <label class="row"><input type="checkbox" class="chk" data-act="s-saver-agenda" ${sv.agenda ? "checked" : ""}> ${esc(t("saver_agenda"))}</label>
+    <fieldset class="pg-room"><legend>${esc(t("saver_sources"))}</legend>${sources.length ? sources.map((e) => `<label class="row"><input type="checkbox" class="chk" data-act="s-saver-cal" data-eid="${esc(e)}" ${sv.calendars.includes(e) ? "checked" : ""}> ${esc(app._hass.states[e]?.attributes.friendly_name || e)}</label>`).join("") : `<p class="muted small">${esc(t("saver_no_sources"))}</p>`}</fieldset>
+    <button class="btn" data-act="s-saver-preview">${esc(t("saver_preview"))}</button></div>`;
 }
 
 // ------------------------------------------------------------------ manage entities
@@ -145,10 +163,21 @@ export async function settingsAct(app, act, el) {
   if (app._view.name === "manage" && pickerAct(app, act, el)) return;
   switch (act) {
     case "s-lang": c.home.language = el.value; app.setLang(el.value); app.persistSoon(); return app.render();
-    case "s-screen": c.home.screen = el.value; return app.persistSoon();
+    case "s-screen": c.home.screen = el.value; c.theme.layout = defaultLayoutForScreen(el.value); app.persistSoon(); return app.render();
     case "s-theme": c.theme.mode = el.value; app.applyTheme(); return app.persistSoon();
     case "s-layout": c.theme.layout = el.value; app.persistSoon(); return app.render();
     case "s-hidenav": c.tablet.hide_nav = el.checked; return app.persistSoon();
+    case "s-saver": case "s-saver-weather": case "s-saver-agenda": case "s-saver-idle": case "s-saver-cal": {
+      c.display ||= { saver: { enabled: false, idle_min: 5, weather: true, agenda: true, calendars: [] } };
+      const sv = c.display.saver;
+      if (act === "s-saver") sv.enabled = el.checked;
+      else if (act === "s-saver-weather") sv.weather = el.checked;
+      else if (act === "s-saver-agenda") sv.agenda = el.checked;
+      else if (act === "s-saver-idle") sv.idle_min = Math.max(1, Math.min(240, Math.round(Number(el.value)) || 5));
+      else { const e = el.dataset.eid; sv.calendars = el.checked ? [...new Set([...sv.calendars, e])].slice(0, 20) : sv.calendars.filter((x) => x !== e); app._agenda = null; }
+      return app.persistSoon();
+    }
+    case "s-saver-preview": app._lastActive = Date.now(); return showSaver(app);
     case "s-wizard": return startWizard(app);
     case "s-manage": return openManage(app);
     case "s-pairing": return app._go({ name: "pairing" });

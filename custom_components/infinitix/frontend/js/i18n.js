@@ -1,6 +1,7 @@
 // Hebrew (default), English and Russian strings.  Placeholders: {name}.
 import { RU, RU_STEPS } from "./i18n_ru.js";
 import { FEATURES } from "./i18n_features.js";
+import { V4 } from "./i18n_v4.js";
 
 export const STRINGS = {
   he: {
@@ -180,6 +181,7 @@ export const STRINGS = {
 
 STRINGS.ru = { ...RU, wiz_steps: RU_STEPS };
 for (const l of Object.keys(FEATURES)) Object.assign(STRINGS[l], FEATURES[l]);
+for (const l of Object.keys(V4)) Object.assign(STRINGS[l], V4[l]);
 
 export const LANGUAGES = [["he", "עברית"], ["en", "English"], ["ru", "Русский"]];
 export const RTL_LANGS = ["he"];
