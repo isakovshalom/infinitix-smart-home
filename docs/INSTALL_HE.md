@@ -1,9 +1,9 @@
-# מדריך התקנה – INFINITIX Smart Home 0.2.0
+# מדריך התקנה – INFINITIX Smart Home 0.3.0
 
 נבדק מול Home Assistant 2026.2.3 ו-2026.11.1 (ראה TEST_REPORT.md). אין צורך ב-Node.js, בטרמינל או ב-YAML.
 
 ## מה יש בקבצים
-- `infinitix-smart-home-0.2.0.zip` – האינטגרציה עצמה. בתוכו התיקייה `custom_components/infinitix/`.
+- `infinitix-smart-home-0.3.0.zip` – האינטגרציה עצמה. בתוכו התיקייה `custom_components/infinitix/`.
 - התיקייה `infinitix-ha` המלאה (קוד, בדיקות, `hacs.json`) – נדרשת רק להתקנה דרך HACS.
 
 ## דרך א׳ – התקנה ידנית מה-ZIP (הכי פשוטה)

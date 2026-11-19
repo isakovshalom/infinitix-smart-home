@@ -12,6 +12,8 @@ import { UNASSIGNED, entitiesOfRoom, visibleRooms, roomName, GROUP_OF_CARD } fro
 import { CARD_TYPES_UI, ROOM_ICONS } from "./constants.js";
 import { startWizard, renderWizard, wizardAct, wizardField, wizardWorkChanged } from "./wizard.js";
 import { renderScenariosPage, scenariosAct, resetScenarios } from "./scenarios.js";
+import { renderPairingPage, pairingAct } from "./pairing.js";
+import { renderMediaPage, mediaAct } from "./media.js";
 import { renderShoppingPage, shoppingAct, openShopping } from "./shopping.js";
 import { renderCamerasPage, camerasAct, cameraField, resetCameras } from "./cameras.js";
 import { renderSettings, renderManage, settingsAct, settingsField, openSettings, openManage, refreshSuggestions } from "./settings.js";
@@ -229,6 +231,8 @@ export class InfinitixPanel extends HTMLElement {
     else if (v === "manage" && this._isAdmin) content = renderManage(this);
     else if (v === "cameras" && this._isAdmin) content = renderCamerasPage(this);
     else if (v === "scenarios" && this._isAdmin) content = renderScenariosPage(this);
+    else if (v === "pairing" && this._isAdmin) content = renderPairingPage(this);
+    else if (v === "media" && this._isAdmin) content = renderMediaPage(this);
     else if (v === "shopping" && this._shop) content = renderShoppingPage(this);
     else if (v === "room") {
       content = roomHTML(this, cfg, this._view.room, { back: !rail && !stage, title: !stage });
@@ -240,7 +244,7 @@ export class InfinitixPanel extends HTMLElement {
     const menu = this._narrow && customElements.get("ha-menu-button") ? `<ha-menu-button></ha-menu-button>` : "";
     const roomTabs = visibleRooms(cfg).map((r) => `<button class="tab" data-act="open-room" data-room="${esc(r.id)}" aria-current="${v === "room" && this._view.room === r.id ? "page" : "false"}">${esc(roomName(r, t))}</button>`).join("");
     const homeTab = `<button class="tab" data-act="go-home" aria-current="${v === "home" ? "page" : "false"}">${esc(t("home"))}</button>`;
-    const nav = dash || v === "settings" || v === "manage" || v === "cameras" || v === "scenarios" || v === "shopping"
+    const nav = dash || v === "settings" || v === "manage" || v === "cameras" || v === "scenarios" || v === "pairing" || v === "media" || v === "shopping"
       ? `<nav class="nav" aria-label="${esc(t("rooms"))}">${homeTab}${roomTabs}</nav>` : `<div style="flex:1"></div>`;
     const admin = this._isAdmin && dash
       ? `<button class="iconbtn" data-act="toggle-edit" aria-pressed="${this._edit}" aria-label="${esc(t("edit_mode"))}">✎</button><button class="iconbtn" data-act="open-settings" aria-label="${esc(t("settings"))}">⚙</button>` : "";
@@ -397,6 +401,8 @@ export class InfinitixPanel extends HTMLElement {
     const act = el.dataset.act;
     if (act.startsWith("c-")) return camerasAct(this, act, el);
     if (act.startsWith("sc-")) return scenariosAct(this, act, el);
+    if (act.startsWith("pr-")) return pairingAct(this, act, el);
+    if (act.startsWith("md-")) return mediaAct(this, act, el);
     if (act.startsWith("sh-")) return shoppingAct(this, act, el);
     if (this._wiz && (act.startsWith("w-") || act.startsWith("pk-"))) return wizardAct(this, act, el);
     if (/^(s|i|m)-/.test(act) || (this._view.name === "manage" && act.startsWith("pk-"))) return settingsAct(this, act, el);

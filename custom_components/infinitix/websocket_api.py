@@ -34,6 +34,7 @@ from .discovery import (
     propose_config,
 )
 from .portability import apply_import, export_config, plan_import, validate_export
+from . import media, pairing
 from .validation import ConfigError, validate_config, validate_scenarios
 
 
@@ -56,6 +57,12 @@ def async_register_commands(hass: HomeAssistant) -> None:
         ws_subscribe_registry,
         ws_camera_discover,
         ws_camera_add,
+        ws_pairing_status,
+        ws_pairing_permit,
+        ws_media_list,
+        ws_media_start,
+        ws_media_continue,
+        ws_media_abort,
         ws_scenarios_list,
         ws_scenarios_save,
         ws_scenarios_run,
@@ -364,3 +371,84 @@ async def ws_scenarios_run(hass, connection, msg) -> None:
         connection.send_error(msg["id"], "not_found", "no such scenario")
         return
     connection.send_result(msg["id"], {"last_run": result})
+
+
+# ------------------------------------------------------------------ pairing (Matter / Zigbee)
+@websocket_api.websocket_command({vol.Required("type"): "infinitix/pairing/status"})
+@websocket_api.require_admin
+@callback
+def ws_pairing_status(hass, connection, msg) -> None:
+    connection.send_result(msg["id"], pairing.async_status(hass))
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "infinitix/pairing/permit",
+        vol.Required("protocol"): vol.In(["zha", "z2m"]),
+        vol.Optional("duration", default=120): int,
+        vol.Optional("base_topic", default="zigbee2mqtt"): str,
+    }
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_pairing_permit(hass, connection, msg) -> None:
+    try:
+        await pairing.async_permit(hass, msg["protocol"], msg["duration"], msg["base_topic"])
+    except pairing.PairingError as err:
+        connection.send_error(msg["id"], err.code, err.detail or err.code)
+        return
+    except Exception as err:  # noqa: BLE001 - HA service errors
+        connection.send_error(msg["id"], "permit_failed", str(err))
+        return
+    connection.send_result(msg["id"], {"duration": msg["duration"]})
+
+
+# ------------------------------------------------------------------ media players
+def _media_call(fn):
+    async def run(hass, connection, msg):
+        try:
+            connection.send_result(msg["id"], await fn(hass, msg))
+        except media.MediaError as err:
+            connection.send_error(msg["id"], err.code, err.detail or err.code)
+    return run
+
+
+@websocket_api.websocket_command({vol.Required("type"): "infinitix/media/list"})
+@websocket_api.require_admin
+@callback
+def ws_media_list(hass, connection, msg) -> None:
+    connection.send_result(msg["id"], media.async_list(hass))
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): "infinitix/media/start", vol.Required("domain"): str, vol.Optional("host", default=""): str}
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_media_start(hass, connection, msg) -> None:
+    async def go(h, m):
+        return await media.async_start(h, m["domain"], m["host"])
+    await _media_call(go)(hass, connection, msg)
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): "infinitix/media/continue", vol.Required("flow_id"): str, vol.Optional("data", default=dict): dict}
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_media_continue(hass, connection, msg) -> None:
+    async def go(h, m):
+        return await media.async_continue(h, m["flow_id"], m["data"])
+    await _media_call(go)(hass, connection, msg)
+
+
+@websocket_api.websocket_command({vol.Required("type"): "infinitix/media/abort", vol.Required("flow_id"): str})
+@websocket_api.require_admin
+@callback
+def ws_media_abort(hass, connection, msg) -> None:
+    try:
+        media.async_abort(hass, msg["flow_id"])
+    except media.MediaError as err:
+        connection.send_error(msg["id"], err.code, err.code)
+        return
+    connection.send_result(msg["id"], {})

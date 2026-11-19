@@ -42,7 +42,7 @@ export const STRINGS = {
     load_failed: "טעינת ההגדרות נכשלה",
     // wizard
     wiz_title: "אשף הגדרה", wiz_step: "שלב {n} מתוך {total}",
-    wiz_steps: ["שפה", "ברוכים הבאים", "אופן הגדרה", "סריקה", "חדרים", "התקנים", "מצלמות", "התאמה", "תצוגה מקדימה"],
+    wiz_steps: ["שם הבית", "חדרים", "הוספת התקנים", "מולטימדיה", "תרחישים", "סקירת התקנים", "מצלמות", "התאמה", "תצוגה מקדימה"],
     wiz_welcome: "ברוכים הבאים ל-INFINITIX", wiz_welcome_sub: "נגדיר את הבית בכמה צעדים קצרים.",
     language: "שפה", home_name: "שם הבית", screen_type: "סוג מסך",
     screen_mobile: "נייד", screen_tablet: "טאבלט קיר", screen_desktop: "מחשב",
@@ -127,7 +127,7 @@ export const STRINGS = {
     admin_only: "This action is for administrators only.",
     load_failed: "Failed to load settings",
     wiz_title: "Setup wizard", wiz_step: "Step {n} of {total}",
-    wiz_steps: ["Language", "Welcome", "Setup mode", "Scan", "Rooms", "Devices", "Cameras", "Customize", "Preview"],
+    wiz_steps: ["Home name", "Rooms", "Add devices", "Media", "Scenarios", "Device review", "Cameras", "Customize", "Preview"],
     wiz_welcome: "Welcome to INFINITIX", wiz_welcome_sub: "Let's set up your home in a few short steps.",
     language: "Language", home_name: "Home name", screen_type: "Screen type",
     screen_mobile: "Phone", screen_tablet: "Wall tablet", screen_desktop: "Computer",

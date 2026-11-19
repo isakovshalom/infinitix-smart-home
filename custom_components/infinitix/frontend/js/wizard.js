@@ -1,10 +1,14 @@
-// Nine-step setup wizard: language, welcome, mode, scan, rooms, devices, cameras, customize, preview.
+// Nine-step setup wizard: home (name + language), rooms, add Matter/Zigbee devices, media players,
+// scenarios, device review, cameras, customize, preview.
 // The wizard edits a draft; nothing touches the live dashboard until "Save & open".
 // Progress is saved to the server after every change so it survives a reload.
 
 import { esc, clone, uid, moveItem, renumber } from "./util.js";
 import { makeT, LANGUAGES } from "./i18n.js";
 import { renderCameras, cameraField, resetCameras } from "./cameras.js";
+import { renderPairing, resetPairing } from "./pairing.js";
+import { renderMedia, resetMedia } from "./media.js";
+import { renderScenariosBody, resetScenarios } from "./scenarios.js";
 import { ROOM_ICONS, DEFAULT_CONFIG } from "./constants.js";
 import { UNASSIGNED, roomName, entitiesOfRoom, visibleEntities, isIncluded } from "./logic.js";
 import { initPicker, renderPicker, renderPickerList, pickerAct, setField } from "./picker.js";
@@ -12,6 +16,7 @@ import { homeHTML, roomHTML } from "./dashboard.js";
 import { icon } from "./cards.js";
 
 const TOTAL = 9;
+const ROOMS_STEP = 1, REVIEW_STEP = 5;
 
 // ------------------------------------------------------------------ draft helpers
 export function ensureUnassigned(w) {
@@ -63,9 +68,8 @@ export function startWizard(app, { fresh = false } = {}) {
   app._wiz = { step, work, scan: null, scanning: false, scanError: null, missing: [], saving: false, previewRoom: null, favq: "" };
   app._view = { name: "wizard" };
   initPicker(app);
-  resetCameras(app);
-  if (step >= 3) runScan(app);
-  else app.render();
+  resetCameras(app); resetPairing(app); resetMedia(app); resetScenarios(app);
+  runScan(app); // areas and devices are needed from the rooms step on
 }
 
 let progressTimer = null;
@@ -92,7 +96,10 @@ async function runScan(app) {
     app._newSet = app._cfg.wizard.completed ? new Set(r.new_entities) : new Set();
     wz.missing = r.missing_entities;
     const w = wz.work;
+    const ids = r.inventory.entities.map((e) => e.entity_id);
     if (w.mode !== "manual" && !Object.keys(w.entities).length && w.rooms.every((r) => r.id === UNASSIGNED)) mergeProposal(w, r.proposal, null);
+    else if (wz.knownIds && w.mode !== "manual") mergeProposal(w, r.proposal, new Set(ids.filter((id) => !wz.knownIds.has(id)))); // devices paired during the wizard
+    wz.knownIds = new Set(ids);
     saveProgress(app, true);
   } catch (err) {
     wz.scanError = err?.message || String(err);
@@ -105,8 +112,8 @@ function goStep(app, n) {
   const wz = app._wiz;
   wz.step = Math.max(0, Math.min(TOTAL - 1, n));
   ensureUnassigned(wz.work);
-  if (wz.step === 3 && !wz.scan && !wz.scanning) runScan(app);
-  else if (wz.step >= 4 && !wz.scan && !wz.scanning) runScan(app);
+  if (wz.step === REVIEW_STEP && !wz.scanning) runScan(app); // pick up devices added in steps 3-4
+  else if (wz.step >= 1 && !wz.scan && !wz.scanning) runScan(app);
   else app.render();
   saveProgress(app, true);
   app._app.querySelector(".content")?.scrollTo?.(0, 0);
@@ -138,9 +145,9 @@ const choice = (act, val, cur, title, desc = "", extra = "") =>
 
 export function renderWizard(app) {
   const wz = app._wiz, { t } = app, steps = t("wiz_steps");
-  const body = [stepLanguage, stepWelcome, stepMode, stepScan, stepRooms, stepDevices, stepCameras, stepCustomize, stepPreview][wz.step](app, wz);
+  const body = [stepHome, stepRooms, stepPairing, stepMedia, stepScenarios, stepReview, stepCameras, stepCustomize, stepPreview][wz.step](app, wz);
   const last = wz.step === TOTAL - 1;
-  const nextDisabled = wz.saving || (wz.step === 3 && (wz.scanning || !!wz.scanError || !wz.scan));
+  const nextDisabled = wz.saving || ((wz.step === ROOMS_STEP || wz.step === REVIEW_STEP) && (wz.scanning || !!wz.scanError || !wz.scan));
   return `<div class="page wiz">
     <div class="row spread"><h1>${esc(t("wiz_title"))}</h1><span class="muted small">${esc(t("wiz_step", { n: wz.step + 1, total: TOTAL }))} · ${esc(steps[wz.step])}</span></div>
     <div class="progress" role="progressbar" aria-valuemin="1" aria-valuemax="${TOTAL}" aria-valuenow="${wz.step + 1}">${steps.map((_, i) => `<i class="${i < wz.step ? "done" : i === wz.step ? "now" : ""}"></i>`).join("")}</div>
@@ -153,28 +160,26 @@ export function renderWizard(app) {
     </div></div>`;
 }
 
-function stepLanguage(app, wz) {
-  const { t } = app, h = wz.work.home;
-  return `<div class="panel"><h2 style="margin-block-start:0">${esc(t("lang_title"))}</h2><p class="muted">${esc(t("lang_sub"))}</p>
-    <div class="choice-grid">${LANGUAGES.map(([code, label]) => choice("w-lang", code, h.language, label, "", `lang="${code}" dir="${code === "he" ? "rtl" : "ltr"}"`)).join("")}</div></div>`;
-}
-
-function stepWelcome(app, wz) {
+function stepHome(app, wz) {
   const { t } = app, h = wz.work.home;
   return `<div class="panel"><h2 style="margin-block-start:0">${esc(t("wiz_welcome"))}</h2><p class="muted">${esc(t("wiz_welcome_sub"))}</p>
     <div class="field"><label class="label" for="homename">${esc(t("home_name"))}</label><input id="homename" class="input" data-field="w.home.name" value="${esc(h.name)}" maxlength="60"></div>
+    <div class="field"><span class="label">${esc(t("lang_title"))}</span>
+      <div class="choice-grid">${LANGUAGES.map(([code, label]) => choice("w-lang", code, h.language, label, "", `lang="${code}" dir="${code === "he" ? "rtl" : "ltr"}"`)).join("")}</div></div>
     <div class="field"><span class="label">${esc(t("screen_type"))}</span><div class="choice-grid">
       ${choice("w-screen", "mobile", h.screen, t("screen_mobile"))}${choice("w-screen", "tablet", h.screen, t("screen_tablet"))}${choice("w-screen", "desktop", h.screen, t("screen_desktop"))}</div></div></div>`;
 }
 
-function stepCameras(app) {
-  return renderCameras(app);
+const stepPairing = (app) => renderPairing(app);
+const stepMedia = (app) => renderMedia(app);
+const stepScenarios = (app) => renderScenariosBody(app);
+
+function stepReview(app, wz) {
+  return `${stepScan(app, wz)}${unassignedBlock(app, wz)}${stepDevices(app)}`;
 }
 
-function stepMode(app, wz) {
-  const { t } = app, m = wz.work.mode;
-  return `<div class="panel"><h2 style="margin-block-start:0">${esc(t("mode_title"))}</h2><div class="choice-grid">
-    ${choice("w-mode", "auto", m, t("mode_auto"), t("mode_auto_d"))}${choice("w-mode", "manual", m, t("mode_manual"), t("mode_manual_d"))}${choice("w-mode", "hybrid", m, t("mode_hybrid"), t("mode_hybrid_d"))}</div></div>`;
+function stepCameras(app) {
+  return renderCameras(app);
 }
 
 function stepScan(app, wz) {
@@ -201,9 +206,9 @@ function stepRooms(app, wz) {
   const rooms = [...w.rooms].sort((a, b) => a.order - b.order);
   const usedAreas = new Set(w.rooms.map((r) => r.area_id).filter(Boolean));
   const freeAreas = (app._inv.areas || []).filter((a) => !usedAreas.has(a.id));
-  const unassigned = Object.entries(w.entities).filter(([, p]) => !p.hidden && (!p.room || p.room === UNASSIGNED));
-  const realRooms = rooms.filter((r) => r.id !== UNASSIGNED);
-  return `<div class="panel"><h2 style="margin-block-start:0">${esc(t("rooms_title"))}</h2>
+  return `<div class="panel"><h2 style="margin-block-start:0">${esc(t("rooms_title"))}</h2><p class="muted">${esc(t("rooms_note"))}</p>
+    <div class="row" style="margin-block-end:16px"><input id="new-room" class="input" style="flex:1 1 200px" maxlength="60" placeholder="${esc(t("room_create_ph"))}" aria-label="${esc(t("room_create_ph"))}">
+      <button class="btn primary" data-act="w-room-create" ${wz.creatingRoom ? "disabled" : ""}>+ ${esc(t("room_create"))}</button></div>${wz.roomError ? `<p class="note" role="alert">${esc(wz.roomError)}</p>` : ""}
     <div class="elist">${rooms.map((r, i) => `<div class="erow" data-room="${esc(r.id)}">
       <input type="checkbox" class="chk" data-act="w-room-vis" ${r.visible !== false ? "checked" : ""} aria-label="${esc(t("visible"))}">
       <div class="meta">${r.id === UNASSIGNED ? `<div class="nm">${esc(t("unassigned"))}</div>` :
@@ -217,11 +222,19 @@ function stepRooms(app, wz) {
     <div class="row" style="margin-block-start:16px">
       ${freeAreas.length ? `<select data-act="w-room-add-area" aria-label="${esc(t("add_area"))}"><option value="">${esc(t("add_area"))}</option>${freeAreas.map((a) => `<option value="${esc(a.id)}">${esc(a.name)}</option>`).join("")}</select>` : ""}
       <button class="btn" data-act="w-room-add-custom">+ ${esc(t("add_custom_room"))}</button></div>
-    ${unassigned.length ? `<h2>${esc(t("assign_unassigned"))} (${unassigned.length})</h2><div class="elist">${unassigned.map(([eid, p]) => {
-      const inv = app._invMap.get(eid);
-      return `<div class="erow" data-eid="${esc(eid)}"><span></span><div class="meta"><div class="nm">${esc(p.name || inv?.name || eid)}</div><div class="id">${esc(eid)}</div></div>
-        <div class="acts"><select data-act="w-assign" aria-label="${esc(t("assign_to"))}"><option value="">${esc(t("assign_to"))}</option>${realRooms.map((r) => `<option value="${esc(r.id)}">${esc(roomName(r, t))}</option>`).join("")}</select></div></div>`;
-    }).join("")}</div>` : ""}</div>`;
+`;
+}
+
+function unassignedBlock(app, wz) {
+  const { t } = app, w = wz.work;
+  const realRooms = [...w.rooms].sort((a, b) => a.order - b.order).filter((r) => r.id !== UNASSIGNED);
+  const unassigned = Object.entries(w.entities).filter(([, p]) => !p.hidden && (!p.room || p.room === UNASSIGNED));
+  if (!unassigned.length) return "";
+  return `<div class="panel"><h2 style="margin-block-start:0">${esc(t("assign_unassigned"))} (${unassigned.length})</h2><div class="elist">${unassigned.map(([eid, p]) => {
+    const inv = app._invMap.get(eid);
+    return `<div class="erow" data-eid="${esc(eid)}"><span></span><div class="meta"><div class="nm">${esc(p.name || inv?.name || eid)}</div><div class="id">${esc(eid)}</div></div>
+      <div class="acts"><select data-act="w-assign" aria-label="${esc(t("assign_to"))}"><option value="">${esc(t("assign_to"))}</option>${realRooms.map((r) => `<option value="${esc(r.id)}">${esc(roomName(r, t))}</option>`).join("")}</select></div></div>`;
+  }).join("")}</div></div>`;
 }
 
 function stepDevices(app) {
@@ -316,6 +329,7 @@ export function wizardAct(app, act, el) {
       if (a) w.rooms.push({ id: `room_${a.id}`, area_id: a.id, name: a.name, icon: a.icon || null, order: w.rooms.length, visible: true });
       return rerender();
     }
+    case "w-room-create": return createRoom(app);
     case "w-room-add-custom": w.rooms.push({ id: uid("room"), area_id: null, name: app.t("room_name_new"), icon: "mdi:door", order: w.rooms.length, visible: true }); return rerender();
     case "w-assign": { const eid = el.closest("[data-eid]").dataset.eid; if (el.value && w.entities[eid]) w.entities[eid].room = el.value; return rerender(); }
     case "w-temp": { if (el.value) w.room_temp_sensor[roomId] = el.value; else delete w.room_temp_sensor[roomId]; return saveProgress(app); }
@@ -324,6 +338,21 @@ export function wizardAct(app, act, el) {
     case "w-prev-room": wz.previewRoom = el.dataset.room || null; return app.render();
     default:
   }
+}
+
+/** Create a real Home Assistant area (admin websocket command) and add it as a room. */
+async function createRoom(app) {
+  const wz = app._wiz, w = wz.work, input = app._app.querySelector("#new-room");
+  const name = input?.value.trim();
+  if (!name) return;
+  wz.creatingRoom = true; wz.roomError = null; app.render();
+  try {
+    const a = await app.callWS({ type: "config/area_registry/create", name });
+    (app._inv.areas ||= []).push({ id: a.area_id, name: a.name, icon: a.icon || null });
+    w.rooms.push({ id: `room_${a.area_id}`, area_id: a.area_id, name: a.name, icon: a.icon || "mdi:door", order: w.rooms.length, visible: true });
+  } catch (err) { wz.roomError = `${app.t("room_create_failed")}: ${err?.message || err}`; }
+  wz.creatingRoom = false;
+  app.render(); saveProgress(app);
 }
 
 export const wizardWorkChanged = (app) => saveProgress(app);

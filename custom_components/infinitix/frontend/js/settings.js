@@ -53,6 +53,8 @@ export function renderSettings(app) {
       <div class="row"><button class="btn primary" data-act="s-manage">${esc(t("manage_entities"))}</button>
         <button class="btn" data-act="s-wizard">${esc(t("reopen_wizard"))}</button>
         <button class="btn" data-act="s-cameras">${esc(t("cam_add_btn"))}</button>
+        <button class="btn" data-act="s-pairing">${esc(t("pr_title"))}</button>
+        <button class="btn" data-act="s-media">${esc(t("md_title"))}</button>
         <button class="btn" data-act="s-scenarios">${esc(t("sc_title"))}</button></div>
       <p class="muted small">${esc(t("reopen_note"))}</p>
       ${s?.newIds?.length ? `<div class="row"><span class="badge ok">${esc(t("new_entities", { n: s.newIds.length }))}</span>
@@ -149,6 +151,8 @@ export async function settingsAct(app, act, el) {
     case "s-hidenav": c.tablet.hide_nav = el.checked; return app.persistSoon();
     case "s-wizard": return startWizard(app);
     case "s-manage": return openManage(app);
+    case "s-pairing": return app._go({ name: "pairing" });
+    case "s-media": return app._go({ name: "media" });
     case "s-scenarios": resetScenarios(app); return app._go({ name: "scenarios" });
     case "s-cameras": resetCameras(app); return app._go({ name: "cameras" });
     case "s-add-new": {

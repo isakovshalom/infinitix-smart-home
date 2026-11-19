@@ -234,4 +234,5 @@ select, .input { min-height: var(--ix-touch); border: 1px solid var(--ix-border)
 .shop-check { width: 44px; height: 44px; flex: none; border-radius: 12px; border: 2px solid var(--ix-border); background: var(--ix-surface); color: var(--ix-accent-contrast); font-size: 1.4rem; display: grid; place-items: center; cursor: pointer; }
 .shop-item.done .shop-check { background: var(--ix-accent); border-color: var(--ix-accent); }
 .erow .acts { display: flex; gap: var(--ix-sp-2); flex-wrap: wrap; }
+.panel a { color: var(--ix-accent-strong); }
 `;

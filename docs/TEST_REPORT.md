@@ -2,6 +2,28 @@
 
 Date: 2026-11-14. HA versions tested: **2026.2.3** (Python 3.13) and **2026.11.1** (Python 3.14, live instance only). Unit tests: 2026.2.3 and 2026.10.4.
 
+# 0.3.0 – wizard reordered, pairing, media (2026-11-19)
+New wizard order: 1 home name (+ language, screen type), 2 rooms (creating a room also creates a real HA area through
+`config/area_registry/create`), 3 add Matter / Zigbee devices, 4 media players with network discovery, 5 scenarios with the
+Hebrew date, then device review, cameras, customize, preview. The same pages (devices, media, scenarios, cameras) are in
+the dashboard under Settings. The old "mode" and "welcome" steps were removed (mode defaults to automatic proposal).
+
+**Verified**
+- pytest on 2026.10.4: **37 passed** (+4: permit via fake `zha.permit` / `mqtt.publish`, topic/duration validation, foreign-flow
+  refusal, admin-only commands).
+- Live HA 2026.11.1 + Chromium: all 9 steps walked; a real HA area was created from step 2; pairing page reports that
+  Matter/ZHA/MQTT are not set up (true on the test instance) and offers the HA setup link; media: Denon with an empty host
+  runs HA's own network search (found nothing: no receiver in the sandbox) and shows the localized message; Samsung to a
+  closed address returns HA's `cannot_connect`; foreign flow ids are refused; Hebrew date shown (9 Kislev 5787 on 19 Nov 2026,
+  midnight-based); the new Settings buttons open the pages.
+
+**Not verified (no hardware here)**
+- Adding an actual Matter device (`matter/commission` is forwarded to HA as-is), actual ZHA joining (`zha.permit`) and
+  Zigbee2MQTT joining (publishes `{"time": N}` to `<base>/bridge/request/permit_join`; unverified against a real Z2M).
+- Adding a real TV / Denon receiver; follow-up steps (TV codes) are relayed generically; a step with fields the panel cannot
+  render sends the user to HA's own screen. Network discovery depends on HA's own SSDP/zeroconf finding the device.
+- "New devices" detection in the pairing page compares HA's device registry before/after (polled every 4 s).
+
 ## 0.2.0 additions (2026-11-14) – what was and was not tested
 Added: palette from infinitix.co.il (values extracted earlier; the site was not re-fetched), language choice (he/en/ru) as
 the first wizard step, ONVIF camera adding, four layouts (Mosaic/Rows/Rail/Stage), storage schema v3 (v1→v2 layout rename,

@@ -28,14 +28,22 @@ async function load(app) {
 }
 
 export function renderScenariosPage(app) {
+  return `<div class="page"><div class="row spread"><h1>${esc(app.t("sc_title"))}</h1><button class="btn" data-act="sc-back">${esc(app.t("back"))}</button></div>${renderScenariosBody(app)}</div>`;
+}
+
+/** Hebrew-calendar date (Intl's built-in calendar; the day changes at midnight, not at sunset). */
+export const hebrewDate = (d, lang) => new Intl.DateTimeFormat(`${lang === "he" ? "he" : lang === "ru" ? "ru" : "en"}-u-ca-hebrew`, { day: "numeric", month: "long", year: "numeric" }).format(d);
+
+export function renderScenariosBody(app) {
   const s = scState(app), { t } = app;
   if (!s.loaded && !s.loading) load(app);
   const dayName = (d) => new Intl.DateTimeFormat(locale(app.lang), { weekday: "short" }).format(new Date(2024, 0, 1 + d));
-  const fmt = (iso) => (iso ? new Intl.DateTimeFormat(locale(app.lang), { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(iso)) : null);
+  const fmt = (iso) => (iso ? `${new Intl.DateTimeFormat(locale(app.lang), { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(iso))} (${hebrewDate(new Date(iso), app.lang)})` : null);
   const src = s.sources || {};
   const needJewish = s.list.some((x) => x.trigger.type === "jewish") || s.draft?.trigger.type === "jewish";
-  let html = `<div class="page"><div class="row spread"><h1>${esc(t("sc_title"))}</h1><button class="btn" data-act="sc-back">${esc(t("back"))}</button></div>
-    <div class="panel"><p class="muted">${esc(t("sc_note"))}</p><p class="muted small">${esc(t("sc_halacha_note"))}</p>
+  let html = `<div class="panel"><p class="muted">${esc(t("sc_note"))}</p>
+    <p><b>${esc(t("sc_today", { greg: new Intl.DateTimeFormat(locale(app.lang), { weekday: "long", day: "numeric", month: "long" }).format(new Date()), heb: hebrewDate(new Date(), app.lang) }))}</b></p>
+    <p class="muted small">${esc(t("sc_hebrew_note"))}</p><p class="muted small">${esc(t("sc_halacha_note"))}</p>
     ${needJewish && s.loaded && !src.candle_lighting ? `<p class="note" role="alert">${esc(t("sc_need_jewish"))}</p>` : ""}
     <div class="row">${Object.entries(TEMPLATES).map(([k, tp]) => `<button class="btn" data-act="sc-tpl" data-tpl="${k}">+ ${esc(t(tp.name_key))}</button>`).join("")}
       <button class="btn primary" data-act="sc-new">+ ${esc(t("sc_new"))}</button></div></div>`;
@@ -50,7 +58,7 @@ export function renderScenariosPage(app) {
       <div class="id">${esc(x.actions.map((a) => `${(app._invMap.get(a.entity_id)?.name || a.entity_id)} → ${t(a.state)}`).join(", "))}</div>
       <div class="id">${x.enabled ? esc(nxt ? t("sc_next", { when: nxt }) : t("sc_next_none")) : ""}${last ? ` · ${esc(t("sc_last", { when: fmt(last.at), res: last.ran ? (last.ok ? t("ok") : t("failed")) : (t(`sc_note_${last.note}`) !== `sc_note_${last.note}` ? t(`sc_note_${last.note}`) : last.note) }))}` : ""}</div></div>
       <div class="acts"><button class="btn" data-act="sc-run">${esc(t("sc_run_now"))}</button><button class="btn" data-act="sc-edit">${esc(t("edit"))}</button><button class="btn danger" data-act="sc-del">${esc(t("remove"))}</button></div></div>`;
-  }).join("")}</div></div>`;
+  }).join("")}</div>`;
   return html;
 }
 
