@@ -1,3 +1,22 @@
+# INFINITIX Smart Home 0.5.0 – additions (2026-11-20)
+
+**Automated – pytest on HA 2026.2.3: 68 passed** (59 + 9 new): stream addresses per brand (Hikvision/Uniview/Provision-ISR/other) never contain
+credentials and reject injection (`@`, spaces, `rtsp://`, bad channel/port); camera and alarm commands admin-only; alarm status detects Risco entities by
+platform and Paradox (PAI/MQTT) panels by device manufacturer; PIMA reported "not installed"; Paradox has no flow; **Risco's real HA config flow** relayed
+(cloud/local menu → host/port/pin form → abort); foreign flows refused; music status lists Spotify accounts and amplifiers; per-user "my music" choice
+(each user only changes their own entry, members never see others', a general config save cannot overwrite it); Music Assistant URL form relayed; admin-only.
+
+**Live – HA 2026.2.3 + Chrome:** alarm page: Risco menu (ענן Risco / חיבור מקומי) and Hebrew-labelled form from HA's flow; submit to an
+unreachable panel → HA's `cannot_connect` after 20 s (shown translated); PIN cleared from the page; PIMA install steps; Paradox "MQTT missing" steps.
+Camera page: Uniview NVR channel 2 → preview `rtsp://127.0.0.1:554/unicast/c2/s0/live`, sent to HA's Generic camera flow → `timeout` after 30 s
+(HA masks the credentials in its own log as `****:****`). Music: Music Assistant connect → translated `cannot_connect`; "Play on" on a real media player
+called `media_player.select_source` and HA's state changed; household user picked "my music" from 9 players and the card appeared on their dashboard.
+
+**Not verified (needs hardware / accounts):** real Hikvision / Uniview / Provision-ISR cameras (Provision-ISR RTSP paths especially); a real Risco
+panel or Risco Cloud account; PIMA with Net4Pro (community integration, not installed here); Paradox with IP150 + PAI; a real Spotify account
+(OAuth needs Spotify developer credentials and the user's sign-in) and Spotify Connect to a real amplifier; a Music Assistant server with YouTube Music;
+`music_assistant.transfer_queue` from the card. Vendor SDKs are not bundled (licensing/NDA is a business decision); connections use HA integrations.
+
 # INFINITIX Smart Home 0.4.0 – test report
 
 Date: 2026-11-19. Baseline before changes: repo already at 0.3.0 (not 0.1.0); 37 tests passed (only with `PYTHONPATH=.`; `pytest.ini` now sets `pythonpath`).

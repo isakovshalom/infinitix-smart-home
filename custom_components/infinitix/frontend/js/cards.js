@@ -166,6 +166,17 @@ const BODY = {
     if (caps.includes("next")) c.push(btn("media", ctx.t("act_next"), 'data-svc="media_next_track"'));
     if (c.length) body += `<div class="controls">${c.join("")}</div>`;
     if (caps.includes("volume_set") && a.volume_level != null) body += slider(ctx, ctx.t("volume"), "volume", 0, 100, Math.round(a.volume_level * 100), 1, "%");
+    // Stream to an amplifier: Spotify Connect devices / inputs come from the entity's own source list.
+    if (caps.includes("select_source") && Array.isArray(a.source_list) && a.source_list.length) {
+      body += `<div class="slider-row"><span>${esc(ctx.t("mu_play_on"))}</span><select data-act="select" data-kind="source" aria-label="${esc(ctx.t("mu_play_on"))}" style="grid-column: span 2">
+        ${a.source ? "" : `<option value="">—</option>`}${a.source_list.slice(0, 60).map((s) => `<option value="${esc(s)}" ${s === a.source ? "selected" : ""}>${esc(s)}</option>`).join("")}</select></div>`;
+    }
+    // Music Assistant: move what plays elsewhere to this player (amplifier / speaker).
+    if (ctx.invMap.get(eid)?.integration === "music_assistant") {
+      const others = Object.values(ctx.hass.states).filter((o) => o.entity_id !== eid && o.state === "playing" && ctx.invMap.get(o.entity_id)?.integration === "music_assistant");
+      if (others.length) body += `<div class="slider-row"><span>${esc(ctx.t("mu_move_here"))}</span><select data-act="select" data-kind="transfer" style="grid-column: span 2"><option value="">—</option>
+        ${others.map((o) => `<option value="${esc(o.entity_id)}">${esc(o.attributes.friendly_name || o.entity_id)}</option>`).join("")}</select></div>`;
+    }
     const power = caps.includes("turn_on") && caps.includes("turn_off");
     return { right: power ? switchBtn(st.state !== "off" && st.state !== "unavailable", ctx.t("act_power")) : "", body };
   },

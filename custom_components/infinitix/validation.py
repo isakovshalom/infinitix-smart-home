@@ -342,6 +342,11 @@ def validate_config(raw: Any) -> dict[str, Any]:
     # that load from storage pass them through; ws save_config overwrites them.
     log = raw.get("scenario_log")
     out["scenario_log"] = log[-SCENARIO_LOG_MAX:] if isinstance(log, list) else []
+    music = raw.get("music_accounts") if isinstance(raw.get("music_accounts"), dict) else {}
+    out["music_accounts"] = {
+        str(uid)[:64]: _entity_id(eid) for uid, eid in list(music.items())[:200]
+        if isinstance(eid, str) and eid.startswith("media_player.")
+    }
     lic = raw.get("license") if isinstance(raw.get("license"), dict) else {}
     out["license"] = {"tier": _choice(lic.get("tier"), ("free", "pro"), "free"), "legacy": bool(lic.get("legacy", False))}
     return out

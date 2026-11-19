@@ -18,6 +18,8 @@ import { startWizard, renderWizard, wizardAct, wizardField, wizardWorkChanged } 
 import { renderScenariosPage, scenariosAct, resetScenarios } from "./scenarios.js";
 import { renderPairingPage, pairingAct } from "./pairing.js";
 import { renderMediaPage, mediaAct } from "./media.js";
+import { renderAlarmPage, alarmAct } from "./alarm.js";
+import { musicAct, MY_MUSIC_PREF } from "./music.js";
 import { renderShoppingPage, shoppingAct, openShopping } from "./shopping.js";
 import { renderCamerasPage, camerasAct, cameraField, resetCameras } from "./cameras.js";
 import { resolveLayout, readDeviceLayout, writeDeviceLayout, reorder, applyOrder } from "./layout.js";
@@ -279,6 +281,7 @@ export class InfinitixPanel extends HTMLElement {
     else if (v === "scenarios" && this._isAdmin) content = renderScenariosPage(this);
     else if (v === "pairing" && this._isAdmin) content = renderPairingPage(this);
     else if (v === "media" && this._isAdmin) content = renderMediaPage(this);
+    else if (v === "alarm" && this._isAdmin) content = renderAlarmPage(this);
     else if (v === "shopping" && this._shop) content = renderShoppingPage(this);
     else if (v === "status") content = renderStatusPage(this);
     else if (v === "page") content = renderPageView(this, cfg, this._view.page);
@@ -419,7 +422,7 @@ export class InfinitixPanel extends HTMLElement {
 
   _refreshCard(el, st) {
     const eid = el.dataset.eid;
-    const pref = this._viewCfg()?.entities[eid];
+    const pref = this._viewCfg()?.entities[eid] || (this._mu?.status?.mine === eid ? MY_MUSIC_PREF : null);
     if (!pref) return;
     el._st = st;
     if (el.dataset.card === "camera" && el.querySelector("img[data-cam]")) {
@@ -494,6 +497,8 @@ export class InfinitixPanel extends HTMLElement {
     if (act.startsWith("sc-")) return scenariosAct(this, act, el);
     if (act.startsWith("pr-")) return pairingAct(this, act, el);
     if (act.startsWith("md-")) return mediaAct(this, act, el);
+    if (act.startsWith("al-")) return alarmAct(this, act, el);
+    if (act.startsWith("mu-")) return musicAct(this, act, el);
     if (act.startsWith("sh-")) return shoppingAct(this, act, el);
     if (act.startsWith("pg-")) return pagesAct(this, act, el);
     if (this._wiz && (act.startsWith("w-") || act.startsWith("pk-"))) return wizardAct(this, act, el);
@@ -564,6 +569,8 @@ export class InfinitixPanel extends HTMLElement {
         return call("climate", "set_temperature", { temperature: Number(next.toFixed(1)) });
       }
       case "select":
+        if (el.dataset.kind === "source") return el.value ? call("media_player", "select_source", { source: el.value }) : undefined;
+        if (el.dataset.kind === "transfer") return el.value ? call("music_assistant", "transfer_queue", { source_player: el.value, auto_play: true }) : undefined;
         return el.dataset.kind === "hvac_mode" ? call("climate", "set_hvac_mode", { hvac_mode: el.value }) : call("climate", "set_fan_mode", { fan_mode: el.value });
       case "activate": return call("scene", "turn_on");
       case "run": return call("script", "turn_on");

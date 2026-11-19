@@ -12,7 +12,7 @@ import { pagesSettingsHTML } from "./pages.js";
 import { agendaSources, showSaver } from "./saver.js";
 import { defaultLayoutForScreen } from "./layout.js";
 
-const FRONTEND_VERSION = "0.4.0";
+const FRONTEND_VERSION = "0.5.0";
 
 export async function openSettings(app) {
   app._view = { name: "settings" };
@@ -61,6 +61,7 @@ export function renderSettings(app) {
         <button class="btn" data-act="s-cameras">${esc(t("cam_add_btn"))}</button>
         <button class="btn" data-act="s-pairing">${esc(t("pr_title"))}</button>
         <button class="btn" data-act="s-media">${esc(t("md_title"))}</button>
+        <button class="btn" data-act="s-alarm">${esc(t("al_title"))}</button>
         <button class="btn" data-act="s-scenarios">${esc(t("sc_title"))}</button></div>
       <p class="muted small">${esc(t("reopen_note"))}</p>
       ${s?.newIds?.length ? `<div class="row"><span class="badge ok">${esc(t("new_entities", { n: s.newIds.length }))}</span>
@@ -182,6 +183,7 @@ export async function settingsAct(app, act, el) {
     case "s-manage": return openManage(app);
     case "s-pairing": return app._go({ name: "pairing" });
     case "s-media": return app._go({ name: "media" });
+    case "s-alarm": return app._go({ name: "alarm" });
     case "s-scenarios": resetScenarios(app); return app._go({ name: "scenarios" });
     case "s-cameras": resetCameras(app); return app._go({ name: "cameras" });
     case "s-add-new": {

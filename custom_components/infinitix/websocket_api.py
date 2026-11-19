@@ -35,7 +35,7 @@ from .discovery import (
 )
 from .features import entitlements
 from .portability import apply_import, export_config, plan_import, validate_export
-from . import media, pairing
+from . import alarms, camera_brands, media, music, pairing
 from .validation import ConfigError, validate_config, validate_scenarios, validate_sources
 
 
@@ -72,6 +72,17 @@ def async_register_commands(hass: HomeAssistant) -> None:
         ws_scenarios_sources,
         ws_scenarios_log,
         ws_license_set,
+        ws_camera_brands,
+        ws_camera_add_rtsp,
+        ws_alarm_status,
+        ws_alarm_start,
+        ws_alarm_continue,
+        ws_alarm_abort,
+        ws_music_status,
+        ws_music_mass_start,
+        ws_music_mass_continue,
+        ws_music_mass_abort,
+        ws_music_my_player,
     ):
         websocket_api.async_register_command(hass, command)
 
@@ -83,7 +94,7 @@ def ws_get_config(hass, connection, msg) -> None:
     data = _manager(hass).data
     if not connection.user.is_admin:
         # Household members get the dashboard config; scenario internals stay with admins.
-        data = {k: v for k, v in data.items() if k not in ("scenario_log", "scenarios", "wizard")}
+        data = {k: v for k, v in data.items() if k not in ("scenario_log", "scenarios", "wizard", "music_accounts")}
         data["wizard"] = {"completed": _manager(hass).data["wizard"]["completed"], "step": 0, "draft": {}}
     connection.send_result(
         msg["id"],
@@ -139,7 +150,7 @@ async def ws_save_config(hass, connection, msg) -> None:
     current = _manager(hass).data
     # The Jewish Calendar mapping is edited through infinitix/scenarios/sources (the wizard's
     # scenarios step saves it there while its draft still holds the old copy).
-    for key in ("scenarios", "scenario_log", "license", "scenario_sources"):
+    for key in ("scenarios", "scenario_log", "license", "scenario_sources", "music_accounts"):
         clean[key] = current.get(key, clean[key])
     await _manager(hass).async_replace(clean)
     connection.send_result(msg["id"], {"config": _manager(hass).data})
@@ -326,6 +337,160 @@ async def ws_camera_add(hass, connection, msg) -> None:
         connection.send_error(msg["id"], err.code, err.detail or err.code)
         return
     connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command({vol.Required("type"): "infinitix/camera/brands"})
+@websocket_api.require_admin
+@callback
+def ws_camera_brands(hass, connection, msg) -> None:
+    connection.send_result(msg["id"], {"brands": camera_brands.brand_list()})
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "infinitix/camera/add_rtsp",
+        vol.Required("brand"): vol.In(list(camera_brands.BRANDS)),
+        vol.Required("host"): str,
+        vol.Optional("port", default=554): int,
+        vol.Optional("kind", default="ipc"): vol.In(["ipc", "nvr"]),
+        vol.Optional("channel", default=1): int,
+        vol.Optional("stream", default="main"): vol.In(["main", "sub"]),
+        vol.Optional("path", default=""): str,
+        vol.Optional("name", default=""): str,
+        vol.Optional("username", default=""): str,
+        vol.Optional("password", default=""): str,
+    }
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_camera_add_rtsp(hass, connection, msg) -> None:
+    """RTSP fallback through HA's Generic camera flow; credentials go only to HA."""
+    try:
+        result = await camera_brands.async_add_rtsp(hass, {k: v for k, v in msg.items() if k not in ("id", "type")})
+    except CameraError as err:
+        connection.send_error(msg["id"], err.code, err.detail or err.code)
+        return
+    connection.send_result(msg["id"], result)
+
+
+def _alarm_call(fn):
+    async def run(hass, connection, msg):
+        try:
+            connection.send_result(msg["id"], await fn(hass, msg))
+        except alarms.AlarmError as err:
+            connection.send_error(msg["id"], err.code, err.detail or err.code)
+    return run
+
+
+@websocket_api.websocket_command({vol.Required("type"): "infinitix/alarm/status"})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_alarm_status(hass, connection, msg) -> None:
+    connection.send_result(msg["id"], await alarms.async_status(hass))
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): "infinitix/alarm/start", vol.Required("brand"): vol.In(list(alarms.BRANDS))}
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_alarm_start(hass, connection, msg) -> None:
+    await _alarm_call(lambda h, m: alarms.async_start(h, m["brand"]))(hass, connection, msg)
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): "infinitix/alarm/continue", vol.Required("flow_id"): str, vol.Optional("data", default=dict): dict}
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_alarm_continue(hass, connection, msg) -> None:
+    await _alarm_call(lambda h, m: alarms.async_continue(h, m["flow_id"], m["data"]))(hass, connection, msg)
+
+
+@websocket_api.websocket_command({vol.Required("type"): "infinitix/alarm/abort", vol.Required("flow_id"): str})
+@websocket_api.require_admin
+@callback
+def ws_alarm_abort(hass, connection, msg) -> None:
+    try:
+        alarms.async_abort(hass, msg["flow_id"])
+    except alarms.AlarmError as err:
+        connection.send_error(msg["id"], err.code, err.code)
+        return
+    connection.send_result(msg["id"], {})
+
+
+def _music_call(fn):
+    async def run(hass, connection, msg):
+        try:
+            connection.send_result(msg["id"], await fn(hass, msg))
+        except music.MusicError as err:
+            connection.send_error(msg["id"], err.code, err.detail or err.code)
+    return run
+
+
+@websocket_api.websocket_command({vol.Required("type"): "infinitix/music/status"})
+@websocket_api.async_response
+async def ws_music_status(hass, connection, msg) -> None:
+    """Services, players and this user's own choice.  Account setup details are admin-only."""
+    status = await music.async_status(hass)
+    mine = _manager(hass).data.get("music_accounts", {}).get(connection.user.id)
+    if not connection.user.is_admin:
+        perms = connection.user.permissions
+        players = [eid for acc in status["spotify"]["accounts"] for eid in acc["entity_ids"]]
+        players += [p["entity_id"] for p in status["music_assistant"]["players"]]
+        players += [p["entity_id"] for p in status["amplifiers"]]
+        status = {"players": [e for e in players if perms.check_entity(e, "read")]}
+    connection.send_result(msg["id"], {**status, "mine": mine, "is_admin": connection.user.is_admin})
+
+
+@websocket_api.websocket_command({vol.Required("type"): "infinitix/music/mass/start"})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_music_mass_start(hass, connection, msg) -> None:
+    await _music_call(lambda h, m: music.async_start_mass(h))(hass, connection, msg)
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): "infinitix/music/mass/continue", vol.Required("flow_id"): str, vol.Optional("data", default=dict): dict}
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_music_mass_continue(hass, connection, msg) -> None:
+    await _music_call(lambda h, m: music.async_continue_mass(h, m["flow_id"], m["data"]))(hass, connection, msg)
+
+
+@websocket_api.websocket_command({vol.Required("type"): "infinitix/music/mass/abort", vol.Required("flow_id"): str})
+@websocket_api.require_admin
+@callback
+def ws_music_mass_abort(hass, connection, msg) -> None:
+    try:
+        music.async_abort_mass(hass, msg["flow_id"])
+    except music.MusicError as err:
+        connection.send_error(msg["id"], err.code, err.code)
+        return
+    connection.send_result(msg["id"], {})
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): "infinitix/music/my_player", vol.Optional("entity_id"): vol.Any(str, None)}
+)
+@websocket_api.async_response
+async def ws_music_my_player(hass, connection, msg) -> None:
+    """Every household member picks their *own* music player; only their own entry changes."""
+    try:
+        eid = music.validate_my_player(hass, connection.user, msg.get("entity_id"))
+    except music.MusicError as err:
+        connection.send_error(msg["id"], err.code, err.code)
+        return
+    manager = _manager(hass)
+    accounts = dict(manager.data.get("music_accounts", {}))
+    if eid:
+        accounts[connection.user.id] = eid
+    else:
+        accounts.pop(connection.user.id, None)
+    manager.data["music_accounts"] = accounts
+    await manager.async_save()
+    connection.send_result(msg["id"], {"mine": eid})
 
 
 def _runner(hass: HomeAssistant):

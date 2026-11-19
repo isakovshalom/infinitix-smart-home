@@ -7,6 +7,7 @@ import { icon } from "./cards.js";
 import { UNASSIGNED, GROUP_OF_CARD, GROUP_ORDER, visibleEntities, visibleRooms, favorites, roomName, entitiesOfRoom } from "./logic.js";
 import { hebrewDate } from "./scenarios.js";
 import { weatherHTML, roomTempText } from "./dashboard.js";
+import { myMusicHTML } from "./music.js";
 
 export const SYSTEM_ICON = {
   lighting: "mdi:lightbulb-group-outline", covers: "mdi:blinds", climate: "mdi:thermostat", media: "mdi:television",
@@ -95,6 +96,7 @@ export function dashboardHTML(app, cfg, { roomsGrid = true } = {}) {
         <small class="live-scope" data-cat-status="${g}">${esc(systemStatus(app, cfg, g))}</small></span></button>`).join("")}</div>` : ""}
     ${scenesList.length ? `<section class="dash-section"><div class="row spread"><h2>${esc(t("quick_scenes"))}</h2>
         <button class="linkbtn" data-act="open-cat" data-cat="scenes">${esc(t("all"))} ‹</button></div>${lazyGrid(app, scenesList.slice(0, 8))}</section>` : ""}
+    ${app._view?.name === "wizard" ? "" : myMusicHTML(app, lazyGrid)}
     <section class="dash-section"><h2>${esc(t("favorites"))}</h2>${favs.length ? lazyGrid(app, favs) : `<div class="empty">${esc(t("no_favorites"))}</div>`}</section>
     ${roomsGrid ? `<section class="dash-section"><h2>${esc(t("rooms"))}</h2>${rooms.length ? `<div class="grid room-grid">${rooms.map((r) => roomTile(app, cfg, r)).join("")}</div>` : `<div class="empty">${esc(t("no_rooms"))}</div>`}</section>` : ""}
   </div>`;

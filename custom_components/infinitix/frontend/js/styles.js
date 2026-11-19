@@ -402,4 +402,8 @@ select, .input { min-height: var(--ix-touch); border: 1px solid var(--ix-border)
 .sv-logo { display: block; width: 200px; height: auto; margin: 0 auto 8px; opacity: .9; }
 .lay-stage { --ix-card-min: 300px; }
 .floating-nav { inset-inline-end: auto; inset-inline-start: var(--ix-sp-4); }
+.steps-list { padding-inline-start: 22px; line-height: 1.7; } .steps-list bdi { font-family: monospace; font-size: .85em; overflow-wrap: anywhere; }
+.choice .badge { align-self: flex-start; margin-block-start: 4px; }
+a.btn { text-decoration: none; color: var(--ix-text); }
+.panel h3 { margin-block: 18px 6px; font-size: 1.02rem; }
 `;

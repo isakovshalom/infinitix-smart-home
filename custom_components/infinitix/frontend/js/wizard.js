@@ -8,6 +8,7 @@ import { makeT, LANGUAGES } from "./i18n.js";
 import { renderCameras, cameraField, resetCameras } from "./cameras.js";
 import { renderPairing, resetPairing } from "./pairing.js";
 import { renderMedia, resetMedia } from "./media.js";
+import { renderAlarm, resetAlarm } from "./alarm.js";
 import { renderScenariosBody, resetScenarios } from "./scenarios.js";
 import { ROOM_ICONS, DEFAULT_CONFIG } from "./constants.js";
 import { defaultLayoutForScreen } from "./layout.js";
@@ -17,7 +18,7 @@ import { roomHTML } from "./dashboard.js";
 import { dashboardHTML } from "./systems.js";
 import { icon } from "./cards.js";
 
-const TOTAL = 9;
+const TOTAL = 10;
 const ROOMS_STEP = 1, REVIEW_STEP = 5;
 
 // ------------------------------------------------------------------ draft helpers
@@ -75,7 +76,7 @@ export function startWizard(app, { fresh = false } = {}) {
   app._wiz = { step, work, scan: null, scanning: false, scanError: null, missing: [], saving: false, previewRoom: null, favq: "" };
   app._view = { name: "wizard" };
   initPicker(app);
-  resetCameras(app); resetPairing(app); resetMedia(app); resetScenarios(app);
+  resetCameras(app); resetPairing(app); resetMedia(app); resetScenarios(app); resetAlarm(app);
   runScan(app); // areas and devices are needed from the rooms step on
 }
 
@@ -152,7 +153,7 @@ const choice = (act, val, cur, title, desc = "", extra = "") =>
 
 export function renderWizard(app) {
   const wz = app._wiz, { t } = app, steps = t("wiz_steps");
-  const body = [stepHome, stepRooms, stepPairing, stepMedia, stepScenarios, stepReview, stepCameras, stepCustomize, stepPreview][wz.step](app, wz);
+  const body = [stepHome, stepRooms, stepPairing, stepMedia, stepScenarios, stepReview, stepCameras, stepAlarm, stepCustomize, stepPreview][wz.step](app, wz);
   const last = wz.step === TOTAL - 1;
   const nextDisabled = wz.saving || ((wz.step === ROOMS_STEP || wz.step === REVIEW_STEP) && (wz.scanning || !!wz.scanError || !wz.scan));
   return `<div class="page wiz">
@@ -179,6 +180,7 @@ function stepHome(app, wz) {
 
 const stepPairing = (app) => renderPairing(app);
 const stepMedia = (app) => renderMedia(app);
+const stepAlarm = (app) => renderAlarm(app);
 const stepScenarios = (app) => renderScenariosBody(app);
 
 function stepReview(app, wz) {

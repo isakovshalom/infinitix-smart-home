@@ -14,7 +14,7 @@ PANEL_WEBCOMPONENT = "infinitix-panel"
 STATIC_URL = "/infinitix_static"
 PANEL_MODULE = "infinitix-panel.js"
 # Appended to the module URL so browsers fetch a new bundle after an update.
-FRONTEND_VERSION = "0.4.0"
+FRONTEND_VERSION = "0.5.0"
 
 CONF_SHOW_IN_SIDEBAR = "show_in_sidebar"
 CONF_SIDEBAR_TITLE = "sidebar_title"

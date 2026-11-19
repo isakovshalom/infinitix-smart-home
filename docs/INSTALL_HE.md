@@ -1,9 +1,9 @@
-# מדריך התקנה – INFINITIX Smart Home 0.4.0
+# מדריך התקנה – INFINITIX Smart Home 0.5.0
 
 נבדק מול Home Assistant 2026.2.3 ו-2026.11.1 (ראה TEST_REPORT.md). אין צורך ב-Node.js, בטרמינל או ב-YAML.
 
 ## מה יש בקבצים
-- `infinitix-smart-home-0.4.0.zip` – האינטגרציה עצמה. בתוכו התיקייה `custom_components/infinitix/`.
+- `infinitix-smart-home-0.5.0.zip` – האינטגרציה עצמה. בתוכו התיקייה `custom_components/infinitix/`.
 - התיקייה `infinitix-ha` המלאה (קוד, בדיקות, `hacs.json`) – נדרשת רק להתקנה דרך HACS.
 
 ## דרך א׳ – התקנה ידנית מה-ZIP (הכי פשוטה)
@@ -43,7 +43,7 @@
 - ב-**Settings ← System ← Logs** אין שגיאות מהמילה `infinitix`. אזהרה אחת על "custom integration which has not been tested by Home Assistant" היא תקינה.
 - אחרי הפעלה מחדש של HA, האשף אינו חוזר והדאשבורד נשאר כפי ששמרת.
 
-## עדכון מ-0.3.0 (או 0.1/0.2) ל-0.4.0
+## עדכון מגרסה קודמת (0.1–0.4) ל-0.5.0
 1. **גבה את HA** (Settings ← System ← Backups).
 2. החלף את התיקייה `config/custom_components/infinitix/` בתוכן החדש (ZIP), או לחץ Update ב-Marketplace/HACS.
 3. **הפעל מחדש את HA.** בהפעלה הראשונה ההגדרות מועברות אוטומטית לסכימה 4:

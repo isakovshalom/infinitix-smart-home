@@ -70,6 +70,7 @@ def default_config() -> dict[str, Any]:
         "display": default_display(),
         "pages": [],
         "license": {"tier": "free"},
+        "music_accounts": {},  # HA user id -> that user's own music player (entity id only)
     }
 
 
