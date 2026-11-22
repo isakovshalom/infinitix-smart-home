@@ -255,7 +255,7 @@ def collect_inventory(hass, user=None) -> dict[str, Any]:
             "manufacturer": d.manufacturer,
             "model": d.model,
         }
-        for d in dr.async_get(hass).devices.values()
+        for d in dr.async_get(hass).devices
     ]
     reg_rows = [
         {

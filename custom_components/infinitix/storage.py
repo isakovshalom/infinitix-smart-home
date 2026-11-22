@@ -2,8 +2,7 @@
 
 The configuration lives in `.storage/infinitix.config` (HA's Store helper).
 Layout (schema version 4; v2 renamed theme.layout grid->mosaic, list->rows;
-v3 added the server-run "scenarios" list; v4 added the scenario sensor mapping,
-the run log, display (screensaver), personal pages and the licence tier):
+v3 added the server-run "scenarios" list; v4 changed scenario actions to op/value):
 
 {
   "home":   {"name": str, "language": "he"|"en", "screen": "mobile"|"tablet"|"desktop"},
@@ -16,18 +15,8 @@ the run log, display (screensaver), personal pages and the licence tier):
   "weather_entity": str|None,
   "tablet": {"hide_nav": bool},
   "seen_entities": [entity_id, ...],  # entities already offered to the user
-  "scenarios": [{"id","name","enabled","trigger","days","shabbat","actions","last_run",
-                 "catchup_min", "restore", "last_fire"}],
-  "scenario_sources": {"candle_lighting"|"havdalah"|"issur_melacha": entity_id},  # explicit mapping
-  "scenario_log": [{"id","name","at","scheduled","reason","ok","ran","note"}],     # newest last, capped
-  "display": {"saver": {"enabled","idle_min","weather","agenda","calendars":[...]}},
-  "pages": [{"id","name","icon","order","entities":[entity_id]}],
-  "license": {"tier": "free"|"pro"}
+  "scenarios": [{"id","name","enabled","trigger","days","shabbat","actions","last_run"}]
 }
-
-theme.layout is the *home default* only.  Each browser/device keeps its own layout
-choice locally (see frontend/js/logic.js resolveLayout); room/card order, hidden,
-favourites and sizes live in rooms/entities and are shared by all layouts.
 
 Design rules:
 * user choices are never overwritten by automatic discovery;
@@ -65,17 +54,7 @@ def default_config() -> dict[str, Any]:
         "tablet": {"hide_nav": False},
         "seen_entities": [],
         "scenarios": [],
-        "scenario_sources": {},
-        "scenario_log": [],
-        "display": default_display(),
-        "pages": [],
-        "license": {"tier": "free"},
-        "music_accounts": {},  # HA user id -> that user's own music player (entity id only)
     }
-
-
-def default_display() -> dict[str, Any]:
-    return {"saver": {"enabled": False, "idle_min": 5, "weather": True, "agenda": True, "calendars": []}}
 
 
 def migrate_data(data: dict[str, Any], from_version: int) -> dict[str, Any]:
@@ -95,17 +74,16 @@ def migrate_data(data: dict[str, Any], from_version: int) -> dict[str, Any]:
             theme["layout"] = LAYOUT_RENAMES.get(theme.get("layout"), theme.get("layout"))
     # v3 only adds "scenarios", which the setdefault loop above already filled with [].
     if from_version < 4:
-        # v4: scenarios gain catch-up/restore settings (off = the 0.3 behaviour) and a
-        # de-duplication key.  Existing values are kept, so running this twice is harmless.
+        # v4: scenario actions use {"op", "value"} instead of {"state", "brightness_pct"};
+        # scenarios gain "dashboard" and "icon".
         for sc in data.get("scenarios") or []:
-            if isinstance(sc, dict):
-                sc.setdefault("catchup_min", 0)
-                sc.setdefault("restore", False)
-                sc.setdefault("last_fire", None)
-        # Installations that existed before licensing keep everything they already use.
-        if "license" not in data or not isinstance(data.get("license"), dict):
-            data["license"] = {"tier": "free"}
-        data["license"].setdefault("legacy", from_version < 4 and from_version > 0)
+            for act in sc.get("actions") or []:
+                if "state" in act:
+                    act["op"] = act.pop("state")
+                if "brightness_pct" in act:
+                    act["value"] = act.pop("brightness_pct")
+            sc.setdefault("dashboard", False)
+            sc.setdefault("icon", "")
     return data
 
 

@@ -33,10 +33,9 @@ from .discovery import (
     find_new_entities,
     propose_config,
 )
-from .features import entitlements
 from .portability import apply_import, export_config, plan_import, validate_export
-from . import alarms, camera_brands, media, music, pairing
-from .validation import ConfigError, validate_config, validate_scenarios, validate_sources
+from . import media, pairing
+from .validation import ConfigError, validate_config, validate_scenarios
 
 
 def _manager(hass: HomeAssistant):
@@ -65,24 +64,10 @@ def async_register_commands(hass: HomeAssistant) -> None:
         ws_media_continue,
         ws_media_abort,
         ws_scenarios_list,
+        ws_scenarios_quick_list,
+        ws_scenarios_quick_run,
         ws_scenarios_save,
         ws_scenarios_run,
-        ws_scenarios_status,
-        ws_scenarios_preview,
-        ws_scenarios_sources,
-        ws_scenarios_log,
-        ws_license_set,
-        ws_camera_brands,
-        ws_camera_add_rtsp,
-        ws_alarm_status,
-        ws_alarm_start,
-        ws_alarm_continue,
-        ws_alarm_abort,
-        ws_music_status,
-        ws_music_mass_start,
-        ws_music_mass_continue,
-        ws_music_mass_abort,
-        ws_music_my_player,
     ):
         websocket_api.async_register_command(hass, command)
 
@@ -92,17 +77,12 @@ def async_register_commands(hass: HomeAssistant) -> None:
 def ws_get_config(hass, connection, msg) -> None:
     """Return the stored configuration (readable by every logged-in user)."""
     data = _manager(hass).data
-    if not connection.user.is_admin:
-        # Household members get the dashboard config; scenario internals stay with admins.
-        data = {k: v for k, v in data.items() if k not in ("scenario_log", "scenarios", "wizard", "music_accounts")}
-        data["wizard"] = {"completed": _manager(hass).data["wizard"]["completed"], "step": 0, "draft": {}}
     connection.send_result(
         msg["id"],
         {
             "config": data,
             "is_admin": connection.user.is_admin,
             "options": hass.data[DOMAIN]["options"],
-            "features": entitlements(_manager(hass).data.get("license")),
         },
     )
 
@@ -145,13 +125,8 @@ async def ws_save_config(hass, connection, msg) -> None:
         connection.send_error(msg["id"], "invalid_config", str(err))
         return
     # Scenarios are edited only through infinitix/scenarios/* (they carry server-owned
-    # run history), so a general config save never overwrites them; the run log and
-    # the licence are server-owned too.
-    current = _manager(hass).data
-    # The Jewish Calendar mapping is edited through infinitix/scenarios/sources (the wizard's
-    # scenarios step saves it there while its draft still holds the old copy).
-    for key in ("scenarios", "scenario_log", "license", "scenario_sources", "music_accounts"):
-        clean[key] = current.get(key, clean[key])
+    # run history), so a general config save never overwrites them.
+    clean["scenarios"] = _manager(hass).data.get("scenarios", [])
     await _manager(hass).async_replace(clean)
     connection.send_result(msg["id"], {"config": _manager(hass).data})
 
@@ -339,182 +314,16 @@ async def ws_camera_add(hass, connection, msg) -> None:
     connection.send_result(msg["id"], result)
 
 
-@websocket_api.websocket_command({vol.Required("type"): "infinitix/camera/brands"})
-@websocket_api.require_admin
-@callback
-def ws_camera_brands(hass, connection, msg) -> None:
-    connection.send_result(msg["id"], {"brands": camera_brands.brand_list()})
-
-
-@websocket_api.websocket_command(
-    {
-        vol.Required("type"): "infinitix/camera/add_rtsp",
-        vol.Required("brand"): vol.In(list(camera_brands.BRANDS)),
-        vol.Required("host"): str,
-        vol.Optional("port", default=554): int,
-        vol.Optional("kind", default="ipc"): vol.In(["ipc", "nvr"]),
-        vol.Optional("channel", default=1): int,
-        vol.Optional("stream", default="main"): vol.In(["main", "sub"]),
-        vol.Optional("path", default=""): str,
-        vol.Optional("name", default=""): str,
-        vol.Optional("username", default=""): str,
-        vol.Optional("password", default=""): str,
-    }
-)
-@websocket_api.require_admin
-@websocket_api.async_response
-async def ws_camera_add_rtsp(hass, connection, msg) -> None:
-    """RTSP fallback through HA's Generic camera flow; credentials go only to HA."""
-    try:
-        result = await camera_brands.async_add_rtsp(hass, {k: v for k, v in msg.items() if k not in ("id", "type")})
-    except CameraError as err:
-        connection.send_error(msg["id"], err.code, err.detail or err.code)
-        return
-    connection.send_result(msg["id"], result)
-
-
-def _alarm_call(fn):
-    async def run(hass, connection, msg):
-        try:
-            connection.send_result(msg["id"], await fn(hass, msg))
-        except alarms.AlarmError as err:
-            connection.send_error(msg["id"], err.code, err.detail or err.code)
-    return run
-
-
-@websocket_api.websocket_command({vol.Required("type"): "infinitix/alarm/status"})
-@websocket_api.require_admin
-@websocket_api.async_response
-async def ws_alarm_status(hass, connection, msg) -> None:
-    connection.send_result(msg["id"], await alarms.async_status(hass))
-
-
-@websocket_api.websocket_command(
-    {vol.Required("type"): "infinitix/alarm/start", vol.Required("brand"): vol.In(list(alarms.BRANDS))}
-)
-@websocket_api.require_admin
-@websocket_api.async_response
-async def ws_alarm_start(hass, connection, msg) -> None:
-    await _alarm_call(lambda h, m: alarms.async_start(h, m["brand"]))(hass, connection, msg)
-
-
-@websocket_api.websocket_command(
-    {vol.Required("type"): "infinitix/alarm/continue", vol.Required("flow_id"): str, vol.Optional("data", default=dict): dict}
-)
-@websocket_api.require_admin
-@websocket_api.async_response
-async def ws_alarm_continue(hass, connection, msg) -> None:
-    await _alarm_call(lambda h, m: alarms.async_continue(h, m["flow_id"], m["data"]))(hass, connection, msg)
-
-
-@websocket_api.websocket_command({vol.Required("type"): "infinitix/alarm/abort", vol.Required("flow_id"): str})
-@websocket_api.require_admin
-@callback
-def ws_alarm_abort(hass, connection, msg) -> None:
-    try:
-        alarms.async_abort(hass, msg["flow_id"])
-    except alarms.AlarmError as err:
-        connection.send_error(msg["id"], err.code, err.code)
-        return
-    connection.send_result(msg["id"], {})
-
-
-def _music_call(fn):
-    async def run(hass, connection, msg):
-        try:
-            connection.send_result(msg["id"], await fn(hass, msg))
-        except music.MusicError as err:
-            connection.send_error(msg["id"], err.code, err.detail or err.code)
-    return run
-
-
-@websocket_api.websocket_command({vol.Required("type"): "infinitix/music/status"})
-@websocket_api.async_response
-async def ws_music_status(hass, connection, msg) -> None:
-    """Services, players and this user's own choice.  Account setup details are admin-only."""
-    status = await music.async_status(hass)
-    mine = _manager(hass).data.get("music_accounts", {}).get(connection.user.id)
-    if not connection.user.is_admin:
-        perms = connection.user.permissions
-        players = [eid for acc in status["spotify"]["accounts"] for eid in acc["entity_ids"]]
-        players += [p["entity_id"] for p in status["music_assistant"]["players"]]
-        players += [p["entity_id"] for p in status["amplifiers"]]
-        status = {"players": [e for e in players if perms.check_entity(e, "read")]}
-    connection.send_result(msg["id"], {**status, "mine": mine, "is_admin": connection.user.is_admin})
-
-
-@websocket_api.websocket_command({vol.Required("type"): "infinitix/music/mass/start"})
-@websocket_api.require_admin
-@websocket_api.async_response
-async def ws_music_mass_start(hass, connection, msg) -> None:
-    await _music_call(lambda h, m: music.async_start_mass(h))(hass, connection, msg)
-
-
-@websocket_api.websocket_command(
-    {vol.Required("type"): "infinitix/music/mass/continue", vol.Required("flow_id"): str, vol.Optional("data", default=dict): dict}
-)
-@websocket_api.require_admin
-@websocket_api.async_response
-async def ws_music_mass_continue(hass, connection, msg) -> None:
-    await _music_call(lambda h, m: music.async_continue_mass(h, m["flow_id"], m["data"]))(hass, connection, msg)
-
-
-@websocket_api.websocket_command({vol.Required("type"): "infinitix/music/mass/abort", vol.Required("flow_id"): str})
-@websocket_api.require_admin
-@callback
-def ws_music_mass_abort(hass, connection, msg) -> None:
-    try:
-        music.async_abort_mass(hass, msg["flow_id"])
-    except music.MusicError as err:
-        connection.send_error(msg["id"], err.code, err.code)
-        return
-    connection.send_result(msg["id"], {})
-
-
-@websocket_api.websocket_command(
-    {vol.Required("type"): "infinitix/music/my_player", vol.Optional("entity_id"): vol.Any(str, None)}
-)
-@websocket_api.async_response
-async def ws_music_my_player(hass, connection, msg) -> None:
-    """Every household member picks their *own* music player; only their own entry changes."""
-    try:
-        eid = music.validate_my_player(hass, connection.user, msg.get("entity_id"))
-    except music.MusicError as err:
-        connection.send_error(msg["id"], err.code, err.code)
-        return
-    manager = _manager(hass)
-    accounts = dict(manager.data.get("music_accounts", {}))
-    if eid:
-        accounts[connection.user.id] = eid
-    else:
-        accounts.pop(connection.user.id, None)
-    manager.data["music_accounts"] = accounts
-    await manager.async_save()
-    connection.send_result(msg["id"], {"mine": eid})
-
-
 def _runner(hass: HomeAssistant):
     return hass.data[DOMAIN].get("runner")
 
 
-def _scenario_view(hass: HomeAssistant, scenarios: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+def _scenario_view(hass: HomeAssistant) -> dict[str, Any]:
     runner = _runner(hass)
-    data = _manager(hass).data
-    locked = runner.locked() if runner else set()
     items = []
-    for sc in data.get("scenarios", []) if scenarios is None else scenarios:
-        items.append({
-            **sc,
-            "next_run": runner.next_run(sc) if runner and sc.get("enabled") and sc["id"] not in locked else None,
-            "locked": sc["id"] in locked,
-            "warnings": runner.warnings(sc) if runner else [],
-        })
-    return {
-        "scenarios": items,
-        "sources": runner.sources() if runner else {},
-        "upcoming": runner.upcoming() if runner and scenarios is None else [],
-        "features": entitlements(data.get("license")),
-    }
+    for sc in _manager(hass).data.get("scenarios", []):
+        items.append({**sc, "next_run": runner.next_run(sc) if runner and sc.get("enabled") else None})
+    return {"scenarios": items, "sources": runner.sources() if runner else {}}
 
 
 @websocket_api.websocket_command({vol.Required("type"): "infinitix/scenarios/list"})
@@ -537,16 +346,10 @@ async def ws_scenarios_save(hass, connection, msg) -> None:
     except ConfigError as err:
         connection.send_error(msg["id"], "invalid_scenarios", str(err))
         return
-    # last_run / last_fire are owned by the server: keep ours, ignore the client's.
-    old = {s["id"]: s for s in manager.data.get("scenarios", [])}
+    # last_run is owned by the server: keep ours, ignore the client's.
+    old = {s["id"]: s.get("last_run") for s in manager.data.get("scenarios", [])}
     for sc in clean:
-        sc["last_run"] = old.get(sc["id"], {}).get("last_run")
-        sc["last_fire"] = old.get(sc["id"], {}).get("last_fire")
-    ent = entitlements(manager.data.get("license"))
-    if ent["enforced"] and len(clean) > max(ent["max_scenarios"], len(old)):
-        # Over the plan limit only *new* scenarios are refused; stored ones are never dropped.
-        connection.send_error(msg["id"], "plan_limit", f"max {ent['max_scenarios']} scenarios")
-        return
+        sc["last_run"] = old.get(sc["id"])
     manager.data["scenarios"] = clean
     await manager.async_save()
     if _runner(hass):
@@ -570,82 +373,6 @@ async def ws_scenarios_run(hass, connection, msg) -> None:
         connection.send_error(msg["id"], "not_found", "no such scenario")
         return
     connection.send_result(msg["id"], {"last_run": result})
-
-
-@websocket_api.websocket_command({vol.Required("type"): "infinitix/scenarios/status"})
-@callback
-def ws_scenarios_status(hass, connection, msg) -> None:
-    """Read-only status for every household member: names, times, results, warnings.
-
-    No entity ids or settings are returned, so it reveals nothing the dashboard does not.
-    """
-    view = _scenario_view(hass)
-    keep = ("id", "name", "enabled", "next_run", "last_run", "locked", "warnings")
-    connection.send_result(msg["id"], {
-        "scenarios": [{k: sc.get(k) for k in keep} for sc in view["scenarios"]],
-        "upcoming": [{k: u[k] for k in ("id", "name", "at")} for u in view["upcoming"]],
-        "times": {k: {"status": v["status"], "value": v["value"]} for k, v in view["sources"].get("detail", {}).items()},
-    })
-
-
-@websocket_api.websocket_command(
-    {vol.Required("type"): "infinitix/scenarios/preview", vol.Required("scenarios"): list}
-)
-@websocket_api.require_admin
-@callback
-def ws_scenarios_preview(hass, connection, msg) -> None:
-    """Next times, warnings and planned actions for unsaved scenarios (runs nothing)."""
-    try:
-        clean = validate_scenarios(msg["scenarios"])
-    except ConfigError as err:
-        connection.send_error(msg["id"], "invalid_scenarios", str(err))
-        return
-    connection.send_result(msg["id"], _scenario_view(hass, clean))
-
-
-@websocket_api.websocket_command(
-    {vol.Required("type"): "infinitix/scenarios/sources", vol.Required("sources"): dict}
-)
-@websocket_api.require_admin
-@websocket_api.async_response
-async def ws_scenarios_sources(hass, connection, msg) -> None:
-    """Save the Jewish Calendar sensor mapping and return its live status for checking."""
-    try:
-        clean = validate_sources(msg["sources"])
-    except ConfigError as err:
-        connection.send_error(msg["id"], "invalid_sources", str(err))
-        return
-    manager = _manager(hass)
-    manager.data["scenario_sources"] = clean
-    await manager.async_save()
-    if _runner(hass):
-        _runner(hass).async_reload()
-    connection.send_result(msg["id"], _scenario_view(hass))
-
-
-@websocket_api.websocket_command(
-    {vol.Required("type"): "infinitix/scenarios/log", vol.Optional("limit", default=50): vol.All(int, vol.Range(min=1, max=200))}
-)
-@websocket_api.require_admin
-@callback
-def ws_scenarios_log(hass, connection, msg) -> None:
-    log = _manager(hass).data.get("scenario_log", [])
-    connection.send_result(msg["id"], {"log": list(reversed(log[-msg["limit"]:]))})
-
-
-@websocket_api.websocket_command(
-    {vol.Required("type"): "infinitix/license/set", vol.Required("tier"): vol.In(["free", "pro"])}
-)
-@websocket_api.require_admin
-@websocket_api.async_response
-async def ws_license_set(hass, connection, msg) -> None:
-    """Placeholder until a licence server exists.  Changing the tier never deletes data."""
-    manager = _manager(hass)
-    manager.data["license"] = {**manager.data.get("license", {}), "tier": msg["tier"]}
-    await manager.async_save()
-    if _runner(hass):
-        _runner(hass).async_reload()
-    connection.send_result(msg["id"], {"features": entitlements(manager.data["license"])})
 
 
 # ------------------------------------------------------------------ pairing (Matter / Zigbee)
@@ -727,3 +454,32 @@ def ws_media_abort(hass, connection, msg) -> None:
         connection.send_error(msg["id"], err.code, err.code)
         return
     connection.send_result(msg["id"], {})
+
+
+# ------------------------------------------------------------------ dashboard buttons (any user)
+@websocket_api.websocket_command({vol.Required("type"): "infinitix/scenarios/quick_list"})
+@callback
+def ws_scenarios_quick_list(hass, connection, msg) -> None:
+    """Scenarios an admin chose to show on the dashboard (name and last result only)."""
+    items = [
+        {"id": s["id"], "name": s["name"], "icon": s.get("icon", ""), "last_run": s.get("last_run")}
+        for s in _manager(hass).data.get("scenarios", [])
+        if s.get("dashboard")
+    ]
+    connection.send_result(msg["id"], {"scenarios": items})
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): "infinitix/scenarios/quick_run", vol.Required("scenario_id"): str}
+)
+@websocket_api.async_response
+async def ws_scenarios_quick_run(hass, connection, msg) -> None:
+    """Run a dashboard scenario from its button.  Allowed for any signed-in user, but only for
+    scenarios an admin marked for the dashboard; an explicit press ignores day/Shabbat conditions."""
+    runner = _runner(hass)
+    scenario = next((s for s in _manager(hass).data.get("scenarios", []) if s["id"] == msg["scenario_id"]), None)
+    if runner is None or scenario is None or not scenario.get("dashboard"):
+        connection.send_error(msg["id"], "not_found", "no such dashboard scenario")
+        return
+    result = await runner.async_run(scenario["id"], reason=f"button:{connection.user.name}", force=True)
+    connection.send_result(msg["id"], {"last_run": result})

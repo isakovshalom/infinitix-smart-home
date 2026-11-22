@@ -8,17 +8,14 @@ import { makeT, LANGUAGES } from "./i18n.js";
 import { renderCameras, cameraField, resetCameras } from "./cameras.js";
 import { renderPairing, resetPairing } from "./pairing.js";
 import { renderMedia, resetMedia } from "./media.js";
-import { renderAlarm, resetAlarm } from "./alarm.js";
 import { renderScenariosBody, resetScenarios } from "./scenarios.js";
 import { ROOM_ICONS, DEFAULT_CONFIG } from "./constants.js";
-import { defaultLayoutForScreen } from "./layout.js";
 import { UNASSIGNED, roomName, entitiesOfRoom, visibleEntities, isIncluded } from "./logic.js";
 import { initPicker, renderPicker, renderPickerList, pickerAct, setField } from "./picker.js";
-import { roomHTML } from "./dashboard.js";
-import { dashboardHTML } from "./systems.js";
+import { homeHTML, roomHTML } from "./dashboard.js";
 import { icon } from "./cards.js";
 
-const TOTAL = 10;
+const TOTAL = 9;
 const ROOMS_STEP = 1, REVIEW_STEP = 5;
 
 // ------------------------------------------------------------------ draft helpers
@@ -65,18 +62,13 @@ export function startWizard(app, { fresh = false } = {}) {
     work = DEFAULT_CONFIG();
     work.home.language = app.lang;
     work.home.screen = app._narrow ? "mobile" : "tablet";
-    work.theme.layout = defaultLayoutForScreen(work.home.screen); // the screen type picks the default layout
   }
-  // Drafts saved by 0.3 have no 0.4 sections: fill them without touching anything else.
-  work.display ||= { saver: { enabled: false, idle_min: 5, weather: true, agenda: true, calendars: [] } };
-  work.pages ||= [];
-  work.scenario_sources ||= {};
   delete work.wizard;
   work.wizard = { completed: false, step: 0, draft: {} };
   app._wiz = { step, work, scan: null, scanning: false, scanError: null, missing: [], saving: false, previewRoom: null, favq: "" };
   app._view = { name: "wizard" };
   initPicker(app);
-  resetCameras(app); resetPairing(app); resetMedia(app); resetScenarios(app); resetAlarm(app);
+  resetCameras(app); resetPairing(app); resetMedia(app); resetScenarios(app);
   runScan(app); // areas and devices are needed from the rooms step on
 }
 
@@ -153,7 +145,7 @@ const choice = (act, val, cur, title, desc = "", extra = "") =>
 
 export function renderWizard(app) {
   const wz = app._wiz, { t } = app, steps = t("wiz_steps");
-  const body = [stepHome, stepRooms, stepPairing, stepMedia, stepScenarios, stepReview, stepCameras, stepAlarm, stepCustomize, stepPreview][wz.step](app, wz);
+  const body = [stepHome, stepRooms, stepPairing, stepMedia, stepScenarios, stepReview, stepCameras, stepCustomize, stepPreview][wz.step](app, wz);
   const last = wz.step === TOTAL - 1;
   const nextDisabled = wz.saving || ((wz.step === ROOMS_STEP || wz.step === REVIEW_STEP) && (wz.scanning || !!wz.scanError || !wz.scan));
   return `<div class="page wiz">
@@ -180,7 +172,6 @@ function stepHome(app, wz) {
 
 const stepPairing = (app) => renderPairing(app);
 const stepMedia = (app) => renderMedia(app);
-const stepAlarm = (app) => renderAlarm(app);
 const stepScenarios = (app) => renderScenariosBody(app);
 
 function stepReview(app, wz) {
@@ -270,9 +261,6 @@ function stepCustomize(app, wz) {
     <div class="field"><span class="label">${esc(t("theme"))}</span><div class="choice-grid">${choice("w-theme", "auto", w.theme.mode, t("theme_auto"))}${choice("w-theme", "light", w.theme.mode, t("theme_light"))}${choice("w-theme", "dark", w.theme.mode, t("theme_dark"))}</div></div>
     <div class="field"><label class="label" for="accent">${esc(t("accent"))}</label><input id="accent" type="color" class="input" data-field="w.theme.accent" value="${esc(w.theme.accent || "#00caec")}" style="width:96px;padding:4px"></div>
     <div class="field"><span class="label">${esc(t("layout"))}</span><div class="choice-grid">${["mosaic", "rows", "rail", "stage"].map((l) => choice("w-layout", l, w.theme.layout, t(`layout_${l}`), t(`layout_${l}_d`))).join("")}</div></div></div>
-  <div class="panel"><h2 style="margin-block-start:0">${esc(t("saver"))}</h2>
-    <label class="row"><input type="checkbox" class="chk" data-act="w-saver" ${w.display.saver.enabled ? "checked" : ""}> ${esc(t("saver_enable"))}</label>
-    ${w.display.saver.enabled ? `<div class="field"><label class="label" for="w-saver-idle">${esc(t("saver_idle"))}</label><input id="w-saver-idle" class="input" type="number" min="1" max="240" data-act="w-saver-idle" value="${w.display.saver.idle_min}" dir="ltr" style="max-width:120px"></div>` : ""}</div>
   <div class="panel"><h2 style="margin-block-start:0">${esc(t("main_temp"))}</h2>
     ${rooms.length ? rooms.map((r) => `<div class="field" data-room="${esc(r.id)}"><label class="label">${esc(roomName(r, t))}</label>${sel("w-temp", w.room_temp_sensor[r.id], temps)}</div>`).join("") : `<div class="empty">${esc(t("no_rooms"))}</div>`}
     <div class="field"><label class="label">${esc(t("weather_entity"))}</label>${sel("w-weather", w.weather_entity, weather)}<span class="muted small">${esc(t("weather_note"))}</span></div></div>
@@ -288,7 +276,7 @@ function stepPreview(app, wz) {
   const rooms = w.rooms.filter((r) => r.visible !== false);
   const chips = `<div class="row" style="margin-block-end:12px"><button class="tab" data-act="w-prev-room" data-room="" aria-current="${!wz.previewRoom ? "page" : "false"}">${esc(t("home"))}</button>
     ${rooms.map((r) => `<button class="tab" data-act="w-prev-room" data-room="${esc(r.id)}" aria-current="${wz.previewRoom === r.id ? "page" : "false"}">${esc(roomName(r, t))}</button>`).join("")}</div>`;
-  const view = wz.previewRoom ? roomHTML(app, w, wz.previewRoom) : dashboardHTML(app, w);
+  const view = wz.previewRoom ? roomHTML(app, w, wz.previewRoom) : homeHTML(app, w);
   return `<div class="panel"><div class="banner" style="border-radius:12px;margin-block-end:12px">${esc(t("preview_banner"))}</div>${chips}<div class="layout-${esc(w.theme.layout)}" data-preview>${view}</div></div>`;
 }
 
@@ -322,12 +310,10 @@ export function wizardAct(app, act, el) {
     case "w-finish": return finish(app);
     case "w-rescan": return runScan(app);
     case "w-lang": w.home.language = val; app.setLang(val); return rerender();
-    case "w-screen": w.home.screen = val; if (!wz.layoutPicked) w.theme.layout = defaultLayoutForScreen(val); return rerender();
+    case "w-screen": w.home.screen = val; return rerender();
     case "w-mode": w.mode = val; return rerender();
     case "w-theme": w.theme.mode = val; app.applyTheme(); return rerender();
-    case "w-layout": w.theme.layout = val; wz.layoutPicked = true; return rerender();
-    case "w-saver": w.display.saver.enabled = el.checked; return rerender();
-    case "w-saver-idle": w.display.saver.idle_min = Math.max(1, Math.min(240, Math.round(Number(el.value)) || 5)); return saveProgress(app);
+    case "w-layout": w.theme.layout = val; return rerender();
     case "w-add-new": mergeProposal(w, wz.scan.proposal, new Set(wz.scan.new_entities)); app._newSet = new Set(); app.toast(app.t("ok")); return rerender();
     case "w-room-vis": { const r = w.rooms.find((x) => x.id === roomId); if (r) r.visible = el.checked; return rerender(); }
     case "w-room-icon": { const r = w.rooms.find((x) => x.id === roomId); if (r) r.icon = el.value; return rerender(); }

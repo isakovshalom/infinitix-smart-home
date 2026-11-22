@@ -183,3 +183,72 @@ async def test_scenario_commands_admin_only_and_general_save_keeps_them(hass, ha
         await user.send_json({"id": i, **m})
         r = await user.receive_json()
         assert not r["success"] and r["error"]["code"] == "unauthorized"
+
+
+# ---- 0.4.0: richer actions, state triggers, dashboard buttons
+from custom_components.infinitix.scenarios import state_crossed  # noqa: E402
+from custom_components.infinitix.scenario_ops import service_call  # noqa: E402
+
+
+def test_ops_allow_list():
+    ok = validate_scenarios([_sc(actions=[
+        {"entity_id": "cover.a", "op": "close"}, {"entity_id": "climate.b", "op": "temperature", "value": 24},
+        {"entity_id": "lock.c", "op": "lock"}, {"entity_id": "scene.d", "op": "activate"},
+        {"entity_id": "light.e", "op": "on", "value": 40}, {"entity_id": "media_player.f", "op": "off"}])])
+    assert [a["op"] for a in ok[0]["actions"]][:2] == ["close", "temperature"]
+    for bad in ({"entity_id": "lock.c", "op": "unlock"}, {"entity_id": "alarm_control_panel.x", "op": "disarm"},
+                {"entity_id": "cover.a", "op": "on"}, {"entity_id": "climate.b", "op": "temperature"},
+                {"entity_id": "climate.b", "op": "temperature", "value": 99}, {"entity_id": "light.e", "op": "on", "value": 0}):
+        with pytest.raises(ConfigError):
+            validate_scenarios([_sc(actions=[bad])])
+
+
+def test_service_mapping():
+    assert service_call("cover.a", "close") == ("cover", "close_cover", {"entity_id": "cover.a"})
+    assert service_call("climate.b", "cool")[2]["hvac_mode"] == "cool"
+    assert service_call("climate.b", "temperature", 23)[2]["temperature"] == 23
+    assert service_call("light.e", "on", 30)[2]["brightness_pct"] == 30
+    assert service_call("scene.d", "activate")[:2] == ("scene", "turn_on")
+
+
+def test_state_trigger_validation_and_edge():
+    t = validate_scenarios([_sc(trigger={"type": "state", "entity_id": "sensor.t", "mode": "above", "value": "28"})])[0]["trigger"]
+    assert t["mode"] == "above"
+    for bad in ({"type": "state", "entity_id": "sensor.t", "mode": "above", "value": "hot"},
+                {"type": "state", "entity_id": "sensor.t", "mode": "near", "value": "1"},
+                {"type": "state", "entity_id": "sensor.t", "mode": "equals", "value": ""}):
+        with pytest.raises(ConfigError):
+            validate_scenarios([_sc(trigger=bad)])
+    assert validate_scenarios([_sc(trigger={"type": "manual"})])[0]["trigger"] == {"type": "manual"}
+    above = {"mode": "above", "value": "28"}
+    assert state_crossed(above, "27", "29") and not state_crossed(above, "29", "30")
+    assert not state_crossed(above, "unavailable", "unknown") and state_crossed(above, "unavailable", "30")
+    eq = {"mode": "equals", "value": "on"}
+    assert state_crossed(eq, "off", "on") and not state_crossed(eq, "on", "on") and not state_crossed(eq, "off", "unavailable")
+
+
+def test_migration_v3_to_v4_converts_actions():
+    old = {"scenarios": [{"id": "a", "actions": [{"entity_id": "light.x", "state": "on", "brightness_pct": 50}]}]}
+    sc = migrate_data(old, 3)["scenarios"][0]
+    assert sc["actions"] == [{"entity_id": "light.x", "op": "on", "value": 50}] and sc["dashboard"] is False
+
+
+async def test_dashboard_button_any_user_only_for_flagged(hass, hass_ws_client, hass_read_only_access_token):
+    await _setup(hass)
+    calls = []
+    hass.services.async_register("cover", "close_cover", lambda c: calls.append(c.data["entity_id"]))
+    admin = await hass_ws_client(hass)
+    shown = _sc(id="shown", dashboard=True, trigger={"type": "manual"}, actions=[{"entity_id": "cover.a", "op": "close"}])
+    hidden = _sc(id="hidden", trigger={"type": "manual"}, actions=[{"entity_id": "cover.b", "op": "close"}])
+    assert (await _save(admin, [shown, hidden]))["success"]
+    user = await hass_ws_client(hass, hass_read_only_access_token)
+    await user.send_json({"id": 1, "type": "infinitix/scenarios/quick_list"})
+    r = await user.receive_json()
+    assert [s["id"] for s in r["result"]["scenarios"]] == ["shown"]
+    await user.send_json({"id": 2, "type": "infinitix/scenarios/quick_run", "scenario_id": "hidden"})
+    assert (await user.receive_json())["error"]["code"] == "not_found" and not calls
+    await user.send_json({"id": 3, "type": "infinitix/scenarios/quick_run", "scenario_id": "shown"})
+    assert (await user.receive_json())["success"] and calls == ["cover.a"]
+    # the full list stays admin-only
+    await user.send_json({"id": 4, "type": "infinitix/scenarios/list"})
+    assert (await user.receive_json())["error"]["code"] == "unauthorized"

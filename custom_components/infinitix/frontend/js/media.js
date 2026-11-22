@@ -3,7 +3,6 @@
 // (for example a code shown on the TV) are shown here and sent straight back to HA.
 
 import { esc } from "./util.js";
-import { renderMusicSetup } from "./music.js";
 
 const fresh = () => ({ list: null, loading: false, error: null, busy: false, flow: null, added: [], manualDomain: "denonavr" });
 export const mdState = (app) => (app._md ||= fresh());
@@ -61,7 +60,7 @@ export function renderMedia(app) {
     html += `<div class="panel"><h2 style="margin-block-start:0">${esc(t("md_added"))}</h2><div class="elist">${s.added.map((a) => `<div class="erow"><span class="badge ok">✓</span><div class="meta"><div class="nm">${esc(a.name)}</div><div class="id">${esc(a.entity_ids.join(", ") || t("md_no_entities"))}</div></div><span></span></div>`).join("")}</div></div>`;
   }
   if (l?.configured.length) html += `<p class="muted small">${esc(t("md_configured", { n: l.configured.length }))}</p>`;
-  return html + renderMusicSetup(app);
+  return html;
 }
 
 export async function mediaAct(app, act, el) {

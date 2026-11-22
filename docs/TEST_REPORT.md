@@ -1,73 +1,4 @@
-# INFINITIX Smart Home 0.5.0 – additions (2026-11-20)
-
-**Automated – pytest on HA 2026.2.3: 68 passed** (59 + 9 new): stream addresses per brand (Hikvision/Uniview/Provision-ISR/other) never contain
-credentials and reject injection (`@`, spaces, `rtsp://`, bad channel/port); camera and alarm commands admin-only; alarm status detects Risco entities by
-platform and Paradox (PAI/MQTT) panels by device manufacturer; PIMA reported "not installed"; Paradox has no flow; **Risco's real HA config flow** relayed
-(cloud/local menu → host/port/pin form → abort); foreign flows refused; music status lists Spotify accounts and amplifiers; per-user "my music" choice
-(each user only changes their own entry, members never see others', a general config save cannot overwrite it); Music Assistant URL form relayed; admin-only.
-
-**Live – HA 2026.2.3 + Chrome:** alarm page: Risco menu (ענן Risco / חיבור מקומי) and Hebrew-labelled form from HA's flow; submit to an
-unreachable panel → HA's `cannot_connect` after 20 s (shown translated); PIN cleared from the page; PIMA install steps; Paradox "MQTT missing" steps.
-Camera page: Uniview NVR channel 2 → preview `rtsp://127.0.0.1:554/unicast/c2/s0/live`, sent to HA's Generic camera flow → `timeout` after 30 s
-(HA masks the credentials in its own log as `****:****`). Music: Music Assistant connect → translated `cannot_connect`; "Play on" on a real media player
-called `media_player.select_source` and HA's state changed; household user picked "my music" from 9 players and the card appeared on their dashboard.
-
-**Not verified (needs hardware / accounts):** real Hikvision / Uniview / Provision-ISR cameras (Provision-ISR RTSP paths especially); a real Risco
-panel or Risco Cloud account; PIMA with Net4Pro (community integration, not installed here); Paradox with IP150 + PAI; a real Spotify account
-(OAuth needs Spotify developer credentials and the user's sign-in) and Spotify Connect to a real amplifier; a Music Assistant server with YouTube Music;
-`music_assistant.transfer_queue` from the card. Vendor SDKs are not bundled (licensing/NDA is a business decision); connections use HA integrations.
-
-# INFINITIX Smart Home 0.4.0 – test report
-
-Date: 2026-11-19. Baseline before changes: repo already at 0.3.0 (not 0.1.0); 37 tests passed (only with `PYTHONPATH=.`; `pytest.ini` now sets `pythonpath`).
-
-# 0.4.0 (2026-11-19)
-
-**Automated – pytest on HA 2026.2.3 (pytest-homeassistant-custom-component 0.13.316): 59 passed** (37 existing + 22 new in `tests/test_v4.py`):
-storage v3→v4 migration keeps all data and is idempotent; real `.storage` v1 file migrates with backup kept; newer schema refused and left untouched;
-non-admin gets `unauthorized` for preview/sources/log/licence/import/run; member status contains no entity ids; `save_config` cannot change run log,
-licence, scenarios or sensor mapping; layout changes keep rooms/cards and send no service calls; same occurrence never runs twice; time trigger fires once
-and logs; missing sensor → skip + warning + log; stale sensor not used; explicit mapping beats auto-discovery; preview runs nothing; restore rules
-(latest wins, unknown/tie = ambiguous → no action); catch-up inside window only, not repeated if it already ran; integration reload never runs recovery;
-recovery runs on the real `homeassistant_started` event; brightness dropped for on/off-only lights; Free/Pro proposal + legacy grandfathering; downgrade
-locks extras without deleting, upgrade unlocks unchanged; **regression: inventory with real devices** (bug found live, see below).
-**Node (`node --test tests/js/*.test.mjs`): 5 passed** – screen-type default, per-device choice wins, Rail falls back on narrow screens, plan limits,
-storage failures never throw, switching layouts leaves customisations unchanged, drag reorder.
-
-**Live – real Home Assistant 2026.2.3 process + HA demo integration (129 entities) + real Jewish Calendar integration, Chrome 153 headless (Playwright):**
-- INFINITIX and Jewish Calendar added through their real config flows; admin + non-admin ("family") users.
-- Wizard: all 9 steps walked to "save & open", no panel errors. Scenarios step found the real Jewish Calendar sensors automatically
-  (`upcoming_candle_lighting`, `upcoming_havdalah`, `issur_melacha_in_effect`) with status OK and current values.
-- Dashboard (reference design), category view: status "0 on · 16 off" → batch "turn on" asked for confirmation, sent `turn_on` per available entity,
-  status updated live from HA to "10 on · 6 off".
-- Per-device layout: Rows / Stage / Mosaic / Rail switched from the panel → stored only in the browser, server config byte-identical, **0 service calls**.
-- Screensaver preview with agenda from real `calendar`/`todo` entities; tap closes it without acting. Forecast modal: 24 h + 7 days from the HA weather entity.
-- Light, dark, tablet 1280×800, phone 390×844, desktop 1440×900 screenshots reviewed.
-- Household user: no settings/edit; status view works; live WebSocket: scan/export/scenarios list/log/save_config → `unauthorized`, status → OK.
-- Performance: 483 configured entities; lighting view with 413 cards fully rendered in 0.31 s; 50 live state changes → 0 long tasks.
-- **Real restart:** time scenario due 23:41 while HA was stopped; HA started 23:42 → ran once as `catch-up` (logged), switch turned off; wizard did not re-appear,
-  all settings kept.
-
-**Bugs found and fixed in this round**
-- `discovery.collect_inventory` iterated `device_registry.devices` (keys), so the panel failed to load ("Unknown error") on any HA with real devices.
-  Introduced by the 0.3 deprecation fix; unit tests had no devices. Fixed (`.values()`) + regression test.
-- Layout dialog read radio buttons as always checked → a chosen layout silently fell back to the home default. Fixed.
-- Negative/unit temperatures rendered reversed in RTL (`24.4°C-`). Fixed with LTR isolation.
-
-**Not verified yet (needs hardware / real home / time)**
-- A real Shabbat end-to-end with a physical switch and light (only the mechanism, a real restart and the real sensors were verified; the Jewish Calendar
-  instance used the default location, so the times themselves were not checked against a calendar).
-- Shopping list against the HA mobile app and Assist (panel side unchanged from 0.3; same `todo` entity).
-- Real 11" wall tablet (touch drag, swipe in Stage, kiosk), Safari/iOS, Android WebView.
-- HA 2026.11.x this round (only 2026.2.3 live + unit tests; 2026.11.1 was covered in 0.3). Marketplace/HACS/ZIP install flows not re-run.
-- Live cameras, alarm with code, locks and media on real devices (demo entities only).
-- Russian strings for 0.4 are a draft.
-- The HA loading screen ("Loading data" with the HA logo) belongs to Home Assistant and cannot be rebranded without modifying HA; the panel's own
-  loading screen now shows the INFINITIX logo.
-- Free/Pro split is a proposal (the spec document's own split was not available in this session); enforcement is off.
-- Open-Meteo fallback and external licence check: not implemented (need explicit consent / business decision).
-
-# (history) INFINITIX Smart Home 0.2.0 – test report
+# INFINITIX Smart Home 0.2.0 – test report
 
 Date: 2026-11-14. HA versions tested: **2026.2.3** (Python 3.13) and **2026.11.1** (Python 3.14, live instance only). Unit tests: 2026.2.3 and 2026.10.4.
 
@@ -92,6 +23,31 @@ the dashboard under Settings. The old "mode" and "welcome" steps were removed (m
 - Adding a real TV / Denon receiver; follow-up steps (TV codes) are relayed generically; a step with fields the panel cannot
   render sends the user to HA's own screen. Network discovery depends on HA's own SSDP/zeroconf finding the device.
 - "New devices" detection in the pairing page compares HA's device registry before/after (polled every 4 s).
+
+## 0.4.0 additions (2026-11-22) – easy scenario builder, dashboard buttons, handover protocol
+Added: scenario schema v4 (per-device action `op` + optional value: lights on/off with brightness, covers open/close/stop,
+climate off/cool/heat/auto/set temperature, media on/off, lock **lock only**, vacuum, scene/script), new triggers (manual button,
+state change: equals/above/below), per-scenario "show on dashboard" + icon, a 3-step builder with 11 ready-made ideas that tick
+matching devices by domain/room name, one-tap buttons on the home screen (any signed-in user can press; only admin edits), and a
+printable handover protocol (rooms, devices, scenarios, signature lines; no credentials).
+
+**Verified on real Home Assistant 2026.11.1 (test instance, not a real home)**
+- v3 → v4 storage migration of an existing scenario (old `state` action became `op`).
+- websocket: save with op/value/state trigger/dashboard/icon; `quick_list` returns only dashboard scenarios; `quick_run` on a
+  non-dashboard scenario is refused (`not_found`); unlock op, light value 500 and climate temperature without a value are rejected.
+- A state-trigger scenario fired when `input_boolean.night_mode` turned on (recorded as ran/ok).
+- Panel in Chromium (Playwright), desktop 1100px and mobile 390px: gallery of 12 tiles, 3-step builder, validation messages,
+  summary text, save, list, state-trigger path, home-screen buttons + press + failure badge, handover download, the builder
+  inside wizard step 5. No page errors except HA's own frontend ones (`Object`, `addEventListener` of undefined).
+- Unit tests: 42 passed (on 2026.10.4; the pytest harness is not available for 2026.11.1).
+
+**Not verified**
+- Real devices: the test lights/covers are templates. A press on the test "Leave" button showed a failure badge because the
+  template light writes brightness into an `input_number` limited to 0–100 (test-fixture quirk, the panel reported it correctly).
+- Ready-made ideas guess rooms by name (living room / entrance in he/en/ru); other room names are not matched, the user ticks manually.
+- Scenarios firing at a real sunset/candle lighting, catch-up after restart, touch behaviour, Russian wording quality.
+- From the Smart Control 360 file only the ideas (scenario templates, trigger kinds, handover protocol, palette tones) were taken.
+  Not ported: hardware catalog, Lanbon panels, simulator, installer roles, subscriptions/licensing.
 
 ## 0.2.0 additions (2026-11-14) – what was and was not tested
 Added: palette from infinitix.co.il (values extracted earlier; the site was not re-fetched), language choice (he/en/ru) as

@@ -3,6 +3,7 @@
 
 import { esc, formatClock, formatDate, greetingKey } from "./util.js";
 import { icon, translateState } from "./cards.js";
+import { quickHTML } from "./scenarios.js";
 import { UNASSIGNED, entitiesOfRoom, favorites, groupEntities, roomName, scenes, visibleRooms } from "./logic.js";
 
 let jobId = 0;
@@ -26,8 +27,7 @@ export function weatherHTML(app, cfg) {
   if (!st) return "";
   const temp = st.attributes.temperature;
   const cond = translateState(app.t, st.state) ?? (app._hass.formatEntityState?.(st) ?? st.state);
-  // A button: opens the 24-hour / 7-day forecast when the weather source provides one.
-  return `<button class="weather" data-weather="${esc(eid)}" data-act="forecast" aria-label="${esc(app.t("forecast"))}">${icon("mdi:weather-partly-cloudy", "sensor")}<bdi dir="ltr">${temp != null ? esc(temp) + esc(st.attributes.temperature_unit || "°") : ""}</bdi><span class="muted small">${esc(cond)}</span></button>`;
+  return `<div class="weather" data-weather="${esc(eid)}">${icon("mdi:weather-partly-cloudy", "sensor")}<span>${temp != null ? esc(temp) + esc(st.attributes.temperature_unit || "°") : ""}</span><span class="muted small">${esc(cond)}</span></div>`;
 }
 
 export function homeHTML(app, cfg, { hero = true, roomsGrid = true } = {}) {
@@ -42,6 +42,7 @@ export function homeHTML(app, cfg, { hero = true, roomsGrid = true } = {}) {
         <div class="date" data-date>${esc(formatDate(now, app.lang))}${cfg.home.name ? ` · ${esc(cfg.home.name)}` : ""}</div></div>
       <div class="row" style="gap:16px">${weatherHTML(app, cfg)}<div class="clock" data-clock aria-live="off">${esc(formatClock(now, app.lang))}</div></div>
     </div>` : ""}
+    ${hero || roomsGrid ? quickHTML(app) : ""}
     ${roomsGrid ? `<h2>${esc(t("rooms"))}</h2>
     ${rooms.length ? `<div class="grid room-grid">${rooms.map((r) => roomTile(app, cfg, r)).join("")}</div>` : `<div class="empty">${esc(t("no_rooms"))}</div>`}` : ""}
     <h2>${esc(t("favorites"))}</h2>

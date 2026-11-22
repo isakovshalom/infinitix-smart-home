@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from .scenario_ops import ACTION_DOMAINS, OPS, VALUE_RANGE
 from .const import CARD_TYPES, UNASSIGNED_ROOM
 from .storage import LAYOUT_RENAMES, default_config
 
@@ -22,16 +23,10 @@ _THEME_MODES = ("auto", "light", "dark")
 _LAYOUTS = ("mosaic", "rows", "rail", "stage")
 _SCENARIO_MAX = 100
 _ACTIONS_MAX = 50
-_ACTION_DOMAINS = ("light", "switch", "fan", "input_boolean")
 _TRIGGER_SUN = ("sunrise", "sunset")
 _TRIGGER_JEWISH = ("candle_lighting", "havdalah")
 _SHABBAT = ("any", "only", "not")
 _OFFSET_MAX = 360
-_CATCHUP_MAX = 720
-SOURCE_KEYS = {"candle_lighting": "sensor", "havdalah": "sensor", "issur_melacha": "binary_sensor"}
-_PAGES_MAX = 50
-SCENARIO_LOG_MAX = 200
-_PAGE_ENTITIES_MAX = 200
 
 
 class ConfigError(ValueError):
@@ -70,10 +65,26 @@ def _icon(value: Any) -> str | None:
     return text
 
 
+_STATE_MODES = ("equals", "above", "below")
+
+
 def _scenario_trigger(raw: Any) -> dict[str, Any]:
     if not isinstance(raw, dict):
         raise ConfigError("scenario trigger must be an object")
     kind = raw.get("type")
+    if kind == "manual":
+        return {"type": "manual"}
+    if kind == "state":
+        mode = raw.get("mode")
+        value = str(raw.get("value") if raw.get("value") is not None else "").strip()[:80]
+        if mode not in _STATE_MODES or not value:
+            raise ConfigError("state trigger needs a mode and a value")
+        if mode != "equals":
+            try:
+                float(value)
+            except ValueError as err:
+                raise ConfigError("above/below needs a number") from err
+        return {"type": "state", "entity_id": _entity_id(raw.get("entity_id")), "mode": mode, "value": value}
     if kind == "time":
         at = raw.get("at")
         try:
@@ -95,6 +106,28 @@ def _scenario_trigger(raw: Any) -> dict[str, Any]:
     return {"type": kind, "event": event, "offset_min": offset}
 
 
+def _scenario_action(a: Any) -> dict[str, Any]:
+    if not isinstance(a, dict):
+        raise ConfigError("action must be an object")
+    eid = _entity_id(a.get("entity_id"))
+    domain = eid.split(".", 1)[0]
+    if domain not in ACTION_DOMAINS:
+        raise ConfigError(f"scenarios can control only {', '.join(ACTION_DOMAINS)}")
+    op = a.get("op", a.get("state"))  # "state" is the pre-0.4 field name
+    if op not in OPS[domain]:
+        raise ConfigError(f"{domain} does not support {op!r} in scenarios")
+    action: dict[str, Any] = {"entity_id": eid, "op": op}
+    value = a.get("value", a.get("brightness_pct"))
+    rng = VALUE_RANGE.get((domain, op))
+    if (domain, op) == ("climate", "temperature") and value is None:
+        raise ConfigError("temperature needs a value")
+    if rng and value is not None:
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not rng[0] <= value <= rng[1]:
+            raise ConfigError(f"value for {domain} {op} must be {rng[0]}-{rng[1]}")
+        action["value"] = value
+    return action
+
+
 def _scenario_last_run(raw: Any) -> dict[str, Any] | None:
     if not isinstance(raw, dict) or not isinstance(raw.get("at"), str):
         return None
@@ -104,77 +137,6 @@ def _scenario_last_run(raw: Any) -> dict[str, Any] | None:
         "ran": bool(raw.get("ran")),
         "note": str(raw.get("note") or "")[:300],
     }
-
-
-def _int_range(value: Any, lo: int, hi: int, default: int, what: str) -> int:
-    if value is None:
-        return default
-    if not isinstance(value, int) or isinstance(value, bool) or not lo <= value <= hi:
-        raise ConfigError(f"{what} must be {lo}-{hi}")
-    return value
-
-
-def validate_sources(raw: Any) -> dict[str, str]:
-    """Explicit Jewish Calendar sensor mapping chosen in the wizard."""
-    if raw is None:
-        return {}
-    if not isinstance(raw, dict):
-        raise ConfigError("scenario_sources must be an object")
-    out: dict[str, str] = {}
-    for key, eid in raw.items():
-        if key not in SOURCE_KEYS or not eid:
-            continue
-        eid = _entity_id(eid)
-        if eid.split(".", 1)[0] != SOURCE_KEYS[key]:
-            raise ConfigError(f"{key} must be a {SOURCE_KEYS[key]} entity")
-        out[key] = eid
-    return out
-
-
-def validate_display(raw: Any) -> dict[str, Any]:
-    saver = (raw or {}).get("saver") if isinstance(raw, dict) else None
-    saver = saver if isinstance(saver, dict) else {}
-    cals = saver.get("calendars") or []
-    if not isinstance(cals, list) or len(cals) > 20:
-        raise ConfigError("calendars must be a list of at most 20")
-    calendars = [_entity_id(c) for c in cals]
-    if any(not c.startswith(("calendar.", "todo.")) for c in calendars):
-        raise ConfigError("agenda sources must be calendar or todo entities")
-    return {
-        "saver": {
-            "enabled": bool(saver.get("enabled", False)),
-            "idle_min": _int_range(saver.get("idle_min"), 1, 240, 5, "idle_min"),
-            "weather": bool(saver.get("weather", True)),
-            "agenda": bool(saver.get("agenda", True)),
-            "calendars": calendars,
-        }
-    }
-
-
-def validate_pages(raw: Any) -> list[dict[str, Any]]:
-    if raw is None:
-        return []
-    if not isinstance(raw, list) or len(raw) > _PAGES_MAX:
-        raise ConfigError(f"pages must be a list of at most {_PAGES_MAX}")
-    out, seen = [], set()
-    for i, page in enumerate(raw):
-        if not isinstance(page, dict):
-            raise ConfigError("page must be an object")
-        pid = _text(page.get("id"), 40)
-        if not pid or pid in seen:
-            raise ConfigError("page ids must be unique and non-empty")
-        seen.add(pid)
-        ents = page.get("entities") or []
-        if not isinstance(ents, list) or len(ents) > _PAGE_ENTITIES_MAX:
-            raise ConfigError("too many entities on a page")
-        out.append({
-            "id": pid,
-            "name": _text(page.get("name"), 60) or pid,
-            "icon": _icon(page.get("icon")),
-            "order": page["order"] if isinstance(page.get("order"), int) else i,
-            "entities": list(dict.fromkeys(_entity_id(e) for e in ents)),
-        })
-    return out
 
 
 def validate_scenarios(raw: Any) -> list[dict[str, Any]]:
@@ -197,23 +159,7 @@ def validate_scenarios(raw: Any) -> list[dict[str, Any]]:
         actions_raw = item.get("actions") or []
         if not isinstance(actions_raw, list) or not 1 <= len(actions_raw) <= _ACTIONS_MAX:
             raise ConfigError("a scenario needs 1-50 actions")
-        actions = []
-        for a in actions_raw:
-            if not isinstance(a, dict):
-                raise ConfigError("action must be an object")
-            eid = _entity_id(a.get("entity_id"))
-            if eid.split(".", 1)[0] not in _ACTION_DOMAINS:
-                raise ConfigError(f"scenarios can control only {', '.join(_ACTION_DOMAINS)}")
-            state = a.get("state")
-            if state not in ("on", "off"):
-                raise ConfigError("action state must be on or off")
-            action: dict[str, Any] = {"entity_id": eid, "state": state}
-            pct = a.get("brightness_pct")
-            if pct is not None and state == "on" and eid.startswith("light."):
-                if not isinstance(pct, int) or isinstance(pct, bool) or not 1 <= pct <= 100:
-                    raise ConfigError("brightness_pct must be 1-100")
-                action["brightness_pct"] = pct
-            actions.append(action)
+        actions = [_scenario_action(a) for a in actions_raw]
         out.append(
             {
                 "id": sid,
@@ -223,12 +169,9 @@ def validate_scenarios(raw: Any) -> list[dict[str, Any]]:
                 "days": sorted(set(days)),
                 "shabbat": _choice(item.get("shabbat"), _SHABBAT, "any"),
                 "actions": actions,
+                "dashboard": bool(item.get("dashboard", False)),
+                "icon": _text(item.get("icon"), 40) or "",
                 "last_run": _scenario_last_run(item.get("last_run")),
-                # Late run allowed after a missed point in time (0 = never run late).
-                "catchup_min": _int_range(item.get("catchup_min"), 0, _CATCHUP_MAX, 0, "catchup_min"),
-                # After an HA restart, re-apply this scenario's state if it is the latest one due.
-                "restore": bool(item.get("restore", False)),
-                "last_fire": item.get("last_fire") if isinstance(item.get("last_fire"), str) else None,
             }
         )
     return out
@@ -335,18 +278,4 @@ def validate_config(raw: Any) -> dict[str, Any]:
         raise ConfigError("seen_entities too large")
     out["seen_entities"] = [_entity_id(e) for e in seen]
     out["scenarios"] = validate_scenarios(raw.get("scenarios"))
-    out["scenario_sources"] = validate_sources(raw.get("scenario_sources"))
-    out["display"] = validate_display(raw.get("display"))
-    out["pages"] = validate_pages(raw.get("pages"))
-    # Server-owned (never taken from the client): run log and licence.  Callers
-    # that load from storage pass them through; ws save_config overwrites them.
-    log = raw.get("scenario_log")
-    out["scenario_log"] = log[-SCENARIO_LOG_MAX:] if isinstance(log, list) else []
-    music = raw.get("music_accounts") if isinstance(raw.get("music_accounts"), dict) else {}
-    out["music_accounts"] = {
-        str(uid)[:64]: _entity_id(eid) for uid, eid in list(music.items())[:200]
-        if isinstance(eid, str) and eid.startswith("media_player.")
-    }
-    lic = raw.get("license") if isinstance(raw.get("license"), dict) else {}
-    out["license"] = {"tier": _choice(lic.get("tier"), ("free", "pro"), "free"), "legacy": bool(lic.get("legacy", False))}
     return out
